@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Upload</title>
+</head>
+<body>
+    <h1>Test Image Upload</h1>
+    <input type="file" id="fileInput" accept="image/*">
+    <button onclick="testUpload()">Test Upload</button>
+    <button onclick="testApplyEffect()">Test Apply Effect</button>
+    <div id="result"></div>
+    
+    <script>
+        let uploadedImageId = null;
+        
+        async function testUpload() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            
+            if (!file) {
+                alert('Please select a file first');
+                return;
+            }
+            
+            const formData = new FormData();
+            formData.append('image', file);
+            
+            try {
+                const response = await fetch('/api/images/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                if (result.success) {
+                    uploadedImageId = result.imageId;
+                    console.log('Upload successful, imageId:', uploadedImageId);
+                }
+            } catch (error) {
+                console.error('Upload error:', error);
+                document.getElementById('result').innerHTML = 'Error: ' + error.message;
+            }
+        }
+        
+        async function testApplyEffect() {
+            if (!uploadedImageId) {
+                alert('Please upload an image first');
+                return;
+            }
+            
+            try {
+                const response = await fetch('/api/images/apply-effect', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        imageId: uploadedImageId,
+                        effectType: 'big_head',
+                        intensity: 0.8
+                    })
+                });
+                
+                const result = await response.json();
+                document.getElementById('result').innerHTML += '<br><pre>' + JSON.stringify(result, null, 2) + '</pre>';
+            } catch (error) {
+                console.error('Apply effect error:', error);
+                document.getElementById('result').innerHTML += '<br>Error: ' + error.message;
+            }
+        }
+    </script>
+</body>
+</html>
