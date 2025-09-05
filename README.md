@@ -1,57 +1,302 @@
-# React + TypeScript + Vite
+# 🍌 Nano Banana Effect
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+An AI-powered image transformation application that applies stunning artistic effects to your photos using Google's Gemini AI. Transform your portraits into anime characters, Picasso-style paintings, oil paintings, and more!
 
-Currently, two official plugins are available:
+## ✨ Features
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+- **AI-Powered Effects**: Transform images using Google Gemini 2.5 Flash Image API
+- **Multiple Art Styles**: 
+  - 🎨 Anime Style - Transform portraits into beautiful anime characters
+  - 🖼️ Picasso Style - Apply cubist artistic transformations
+  - 🎭 Oil Painting - Create classic oil painting effects
+  - 🏛️ Frida Kahlo Style - Artistic transformations inspired by Frida Kahlo
+  - 🏠 Miniature Effect - Create tilt-shift miniature-like effects
+- **Adjustable Intensity**: Fine-tune effect strength from subtle to dramatic
+- **Real-time Processing**: Live progress updates during AI generation
+- **Image Optimization**: Automatic image compression and optimization
+- **Modern UI**: Clean, responsive interface built with React and Tailwind CSS
 
-## Expanding the ESLint configuration
+## 🛠️ Tech Stack
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### Frontend
+- **React 18** with TypeScript
+- **Vite** for fast development and building
+- **Tailwind CSS** for styling
+- **Zustand** for state management
+- **Lucide React** for icons
 
-```js
-export default tseslint.config({
-  extends: [
-    // Remove ...tseslint.configs.recommended and replace with this
-    ...tseslint.configs.recommendedTypeChecked,
-    // Alternatively, use this for stricter rules
-    ...tseslint.configs.strictTypeChecked,
-    // Optionally, add this for stylistic rules
-    ...tseslint.configs.stylisticTypeChecked,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+### Backend
+- **Node.js** with Express
+- **TypeScript** for type safety
+- **Google Gemini AI** for image processing
+- **Sharp** for image optimization
+- **Multer** for file uploads
+
+## 📋 Prerequisites
+
+- **Node.js 18+** (recommended: Node.js 20 or later)
+- **npm** or **yarn** package manager
+- **Google Gemini API Key** (required for AI image processing)
+
+## 🚀 Installation
+
+1. **Clone the repository**
+   ```bash
+   git clone <repository-url>
+   cd nano-banana-effect
+   ```
+
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Set up environment variables**
+   
+   Create a `.env` file in the root directory:
+   ```bash
+   touch .env
+   ```
+   
+   Add your Google Gemini API key:
+   ```env
+   GOOGLE_API_KEY=your_gemini_api_key_here
+   ```
+
+## 🔑 Getting Your Gemini API Key
+
+1. **Visit Google AI Studio**
+   - Go to [https://aistudio.google.com/](https://aistudio.google.com/)
+   - Sign in with your Google account
+
+2. **Create API Key**
+   - Click on "Get API Key" in the left sidebar
+   - Click "Create API Key"
+   - Choose "Create API key in new project" or select an existing project
+   - Copy the generated API key
+
+3. **Add to Environment**
+   - Paste the API key in your `.env` file:
+   ```env
+   GOOGLE_API_KEY=AIzaSyBZCrJUTIziuZJVXRoyoWac5vFkTO-mqDU
+   ```
+   
+   ⚠️ **Important**: Keep your API key secure and never commit it to version control!
+
+## 🏃‍♂️ Running the Application
+
+### Development Mode
+
+Start both frontend and backend servers:
+```bash
+npm run dev
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+This will start:
+- **Frontend**: http://localhost:5173 (Vite dev server)
+- **Backend**: http://localhost:3001 (Express server)
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+### Individual Commands
 
-export default tseslint.config({
-  extends: [
-    // other configs...
-    // Enable lint rules for React
-    reactX.configs['recommended-typescript'],
-    // Enable lint rules for React DOM
-    reactDom.configs.recommended,
-  ],
-  languageOptions: {
-    // other options...
-    parserOptions: {
-      project: ['./tsconfig.node.json', './tsconfig.app.json'],
-      tsconfigRootDir: import.meta.dirname,
-    },
-  },
-})
+Run frontend only:
+```bash
+npm run client:dev
 ```
+
+Run backend only:
+```bash
+npm run server:dev
+```
+
+### Production Build
+
+Build for production:
+```bash
+npm run build
+```
+
+Preview production build:
+```bash
+npm run preview
+```
+
+## 📖 How to Use
+
+1. **Open the Application**
+   - Navigate to http://localhost:5173 in your browser
+
+2. **Upload an Image**
+   - Click the upload area or drag & drop an image
+   - Supported formats: JPEG, PNG, WebP
+   - Recommended: Portrait photos work best
+
+3. **Choose an Effect**
+   - Select from available artistic effects
+   - Each effect has a unique AI transformation style
+
+4. **Adjust Intensity**
+   - Use the intensity slider (0-100%)
+   - Higher values create more dramatic transformations
+
+5. **Apply Effect**
+   - Click "Apply Effect" to start AI processing
+   - Processing typically takes 10-30 seconds
+   - Watch the real-time progress indicator
+
+6. **Download Result**
+   - Once complete, download your transformed image
+   - Images are automatically optimized for web use
+
+## 🔌 API Endpoints
+
+### Upload Image
+```http
+POST /api/images/upload
+Content-Type: multipart/form-data
+
+Body: { image: File }
+```
+
+### Apply Effect
+```http
+POST /api/images/apply-effect
+Content-Type: application/json
+
+Body: {
+  "imageId": "string",
+  "effectType": "anime_style|picasso_style|oil_painting|frida_effect|miniature_effect",
+  "intensity": 0.8
+}
+```
+
+### Check Processing Status
+```http
+GET /api/images/status/:jobId
+```
+
+### Download Processed Image
+```http
+GET /api/images/file/:filename
+```
+
+## 🚀 Deployment
+
+### Vercel (Recommended)
+
+1. **Install Vercel CLI**
+   ```bash
+   npm i -g vercel
+   ```
+
+2. **Deploy**
+   ```bash
+   vercel
+   ```
+
+3. **Set Environment Variables**
+   - In Vercel dashboard, go to Project Settings → Environment Variables
+   - Add `GOOGLE_API_KEY` with your Gemini API key
+
+### Other Platforms
+
+The app can be deployed to any platform that supports Node.js:
+- **Netlify** (with serverless functions)
+- **Railway**
+- **Render**
+- **Heroku**
+
+Make sure to:
+- Set the `GOOGLE_API_KEY` environment variable
+- Configure build command: `npm run build`
+- Set start command: `npm start` (you may need to add this script)
+
+## 🛠️ Development
+
+### Project Structure
+```
+nano-banana-effect/
+├── src/                 # Frontend React app
+│   ├── components/      # Reusable components
+│   ├── pages/          # Page components
+│   ├── hooks/          # Custom React hooks
+│   └── lib/            # Utility functions
+├── api/                # Backend Express server
+│   ├── routes/         # API route handlers
+│   ├── images/         # Image processing logic
+│   └── server.ts       # Server entry point
+├── uploads/            # Temporary image storage
+└── public/             # Static assets
+```
+
+### Available Scripts
+
+- `npm run dev` - Start development servers
+- `npm run build` - Build for production
+- `npm run lint` - Run ESLint
+- `npm run check` - TypeScript type checking
+- `npm run preview` - Preview production build
+
+### Code Quality
+
+- **TypeScript** for type safety
+- **ESLint** for code linting
+- **Prettier** formatting (recommended)
+- **Husky** for git hooks (optional)
+
+## 🤝 Contributing
+
+1. **Fork the repository**
+2. **Create a feature branch**
+   ```bash
+   git checkout -b feature/amazing-feature
+   ```
+3. **Make your changes**
+4. **Run tests and linting**
+   ```bash
+   npm run lint
+   npm run check
+   ```
+5. **Commit your changes**
+   ```bash
+   git commit -m 'Add amazing feature'
+   ```
+6. **Push to the branch**
+   ```bash
+   git push origin feature/amazing-feature
+   ```
+7. **Open a Pull Request**
+
+## 📝 License
+
+This project is licensed under the MIT License - see the LICENSE file for details.
+
+## 🆘 Troubleshooting
+
+### Common Issues
+
+**"API Key not found" Error**
+- Ensure `GOOGLE_API_KEY` is set in your `.env` file
+- Restart the development server after adding the key
+
+**"Image processing failed" Error**
+- Check your internet connection
+- Verify your Gemini API key is valid and has quota remaining
+- Try with a smaller image file
+
+**Upload fails**
+- Ensure image is in supported format (JPEG, PNG, WebP)
+- Check file size (recommended < 10MB)
+
+**Server won't start**
+- Check if ports 3001 and 5173 are available
+- Run `npm install` to ensure all dependencies are installed
+
+### Getting Help
+
+- Check the browser console for error messages
+- Look at the server logs in your terminal
+- Ensure all environment variables are properly set
+
+---
+
+**Crafted with 💖 by TRAE SOLO** 🤖✨ *Your friendly AI coding agent!* 🌟
