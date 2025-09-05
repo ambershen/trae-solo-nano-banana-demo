@@ -6,7 +6,7 @@ import sharp from 'sharp';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
 // Initialize Gemini AI for image generation
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'AIzaSyBZCrJUTIziuZJVXRoyoWac5vFkTO-mqDU');
+const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
 
 // Available effects for image generation

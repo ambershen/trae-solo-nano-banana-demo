@@ -63,25 +63,64 @@ An AI-powered image transformation application that applies stunning artistic ef
    GOOGLE_API_KEY=your_gemini_api_key_here
    ```
 
-## 🔑 Getting Your Gemini API Key
+## 🔑 Setting Up Your Gemini API Key
+
+### Step 1: Get Your API Key from Google AI Studio
 
 1. **Visit Google AI Studio**
    - Go to [https://aistudio.google.com/](https://aistudio.google.com/)
-   - Sign in with your Google account
+   - Sign in with your Google account (create one if needed)
 
-2. **Create API Key**
-   - Click on "Get API Key" in the left sidebar
-   - Click "Create API Key"
-   - Choose "Create API key in new project" or select an existing project
-   - Copy the generated API key
+2. **Create Your API Key**
+   - Look for "Get API Key" in the left sidebar
+   - Click "Create API Key" button
+   - Choose "Create API key in new project" (recommended for new users)
+   - Or select an existing Google Cloud project if you have one
+   - **Important**: Copy the API key immediately - you won't be able to see it again!
 
-3. **Add to Environment**
-   - Paste the API key in your `.env` file:
-   ```env
-   GOOGLE_API_KEY=AIzaSyBZCrJUTIziuZJVXRoyoWac5vFkTO-mqDU
+### Step 2: Set Up Your Environment File
+
+1. **Copy the Example File**
+   ```bash
+   cp .env.example .env
    ```
-   
-   ⚠️ **Important**: Keep your API key secure and never commit it to version control!
+
+2. **Add Your API Key**
+   - Open the `.env` file in your text editor
+   - Replace `your_gemini_api_key_here` with your actual API key:
+   ```env
+   GOOGLE_API_KEY=AIzaSyB...(your actual key here)
+   ```
+
+### 🔒 Security Best Practices
+
+- ✅ **DO**: Keep your API key in the `.env` file (already added to `.gitignore`)
+- ✅ **DO**: Use environment variables in production
+- ❌ **DON'T**: Share your API key publicly or commit it to version control
+- ❌ **DON'T**: Hardcode the API key in your source code
+
+### 🚨 Troubleshooting API Key Issues
+
+**Problem**: "API key not found" error
+- ✅ Check that your `.env` file exists in the project root
+- ✅ Verify the API key starts with `AIzaSy`
+- ✅ Ensure no extra spaces or quotes around the key
+- ✅ Restart the development server after adding the key
+
+**Problem**: "Invalid API key" error
+- ✅ Double-check you copied the complete key from Google AI Studio
+- ✅ Make sure the API key hasn't been restricted or disabled
+- ✅ Try generating a new API key if the issue persists
+
+**Problem**: "Quota exceeded" error
+- ✅ Check your usage in [Google AI Studio](https://aistudio.google.com/)
+- ✅ You may need to enable billing for higher usage limits
+- ✅ Consider implementing rate limiting in your application
+
+**Still having issues?** 
+- Check the [Google AI Studio documentation](https://ai.google.dev/docs)
+- Ensure your Google account has access to Gemini API
+- Try creating a fresh API key
 
 ## 🏃‍♂️ Running the Application
 
