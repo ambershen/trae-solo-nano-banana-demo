@@ -1,4 +1,7 @@
-# 🍌 Nano Banana Effect
+# 🍌 Artistic Effect Generation for Your Portrait
+
+> **Built with TRAE SOLO x Nano-banana** 🤖✨  
+> Want to learn how this app was created? Check out our step-by-step tutorial: [Using TRAE SOLO x Nano-Banana to build an app](./Using%20TRAE%20SOLO%20x%20Nano-Banana%20to%20build%20an%20app.md)
 
 An AI-powered image transformation application that applies stunning artistic effects to your photos using Google's Gemini AI. Transform your portraits into anime characters, Picasso-style paintings, oil paintings, and more!
 
