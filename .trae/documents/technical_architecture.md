@@ -8,8 +8,8 @@ graph TD
   B --> C[Supabase SDK]
   B --> D[Node.js Backend API]
   C --> E[Supabase Service]
-  D --> F[Google Gemini 2.5 Flash API]
-  D --> G[Image Processing Service]
+  D --> F[Google Gemini 2.5 Flash Image API]
+  D --> G[Sharp Image Processing Service]
   D --> H[File Storage]
 
   subgraph "Frontend Layer"
@@ -32,48 +32,62 @@ graph TD
 ```
 
 ## 2. Technology Description
-- Frontend: React@18 + TypeScript + Tailwind CSS@3 + Vite + React Router
-- Backend: Node.js@18 + Express@4 + TypeScript + Multer (file uploads)
-- Database: Supabase (PostgreSQL)
-- Authentication: Supabase Auth
-- File Storage: Supabase Storage
-- AI Processing: Google Gemini 2.5 Flash API
-- Image Processing: Sharp (Node.js) + Canvas API (Frontend)
+
+* Frontend: React\@18 + TypeScript + Tailwind CSS\@3 + Vite + React Router
+
+* Backend: Node.js\@18 + Express\@4 + TypeScript + Multer (file uploads)
+
+* Database: Supabase (PostgreSQL)
+
+* Authentication: Supabase Auth
+
+* File Storage: Supabase Storage
+
+* AI Image Generation: Google Gemini 2.5 Flash Image API (gemini-2.5-flash-image-preview)
+
+* Image Processing: Sharp (Node.js) for fallback effects + Canvas API (Frontend)
+
+* Logging: Comprehensive API call tracking and response monitoring
 
 ## 3. Route Definitions
-| Route | Purpose |
-|-------|---------|
-| / | Home page with hero section and quick upload functionality |
-| /editor | Main editing interface with image upload and effect selection |
-| /gallery | User's processed images history and management |
-| /login | User authentication page |
-| /register | User registration page |
-| /profile | User profile settings and account management |
+
+| Route     | Purpose                                                       |
+| --------- | ------------------------------------------------------------- |
+| /         | Home page with hero section and quick upload functionality    |
+| /editor   | Main editing interface with image upload and effect selection |
+| /gallery  | User's processed images history and management                |
+| /login    | User authentication page                                      |
+| /register | User registration page                                        |
+| /profile  | User profile settings and account management                  |
 
 ## 4. API Definitions
 
 ### 4.1 Core API
 
 **Image Upload**
+
 ```
 POST /api/images/upload
 ```
 
 Request (multipart/form-data):
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| image | File | true | Image file (JPEG, PNG, WebP, max 10MB) |
-| userId | string | false | User ID for registered users |
+
+| Param Name | Param Type | isRequired | Description                            |
+| ---------- | ---------- | ---------- | -------------------------------------- |
+| image      | File       | true       | Image file (JPEG, PNG, WebP, max 10MB) |
+| userId     | string     | false      | User ID for registered users           |
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| success | boolean | Upload status |
-| imageId | string | Unique identifier for uploaded image |
-| imageUrl | string | Temporary URL for image access |
-| metadata | object | Image dimensions, format, file size |
+
+| Param Name | Param Type | Description                          |
+| ---------- | ---------- | ------------------------------------ |
+| success    | boolean    | Upload status                        |
+| imageId    | string     | Unique identifier for uploaded image |
+| imageUrl   | string     | Temporary URL for image access       |
+| metadata   | object     | Image dimensions, format, file size  |
 
 Example Response:
+
 ```json
 {
   "success": true,
@@ -88,27 +102,32 @@ Example Response:
 }
 ```
 
-**Apply AI Effect**
+**Apply AI Image Generation Effect**
+
 ```
 POST /api/effects/apply
 ```
 
 Request:
-| Param Name | Param Type | isRequired | Description |
-|------------|------------|------------|-------------|
-| imageId | string | true | ID of uploaded image |
-| effectType | string | true | Effect name (e.g., "big_head", "artistic_style") |
-| intensity | number | false | Effect intensity (0.1-1.0, default 0.8) |
-| userId | string | false | User ID for registered users |
+
+| Param Name | Param Type | isRequired | Description                                                 |
+| ---------- | ---------- | ---------- | ----------------------------------------------------------- |
+| imageId    | string     | true       | ID of uploaded image                                        |
+| effectType | string     | true       | Effect name (e.g., "big\_head", "artistic\_style", "aging") |
+| intensity  | number     | false      | Effect intensity (0.1-1.0, default 0.8)                     |
+| userId     | string     | false      | User ID for registered users                                |
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| success | boolean | Processing status |
-| jobId | string | Processing job identifier |
-| estimatedTime | number | Estimated completion time in seconds |
+
+| Param Name    | Param Type | Description                            |
+| ------------- | ---------- | -------------------------------------- |
+| success       | boolean    | Processing status                      |
+| jobId         | string     | Processing job identifier              |
+| estimatedTime | number     | Estimated completion time in seconds   |
+| method        | string     | "ai\_generated" or "fallback\_effects" |
 
 Example Request:
+
 ```json
 {
   "imageId": "img_abc123",
@@ -119,29 +138,33 @@ Example Request:
 ```
 
 **Get Processing Status**
+
 ```
 GET /api/effects/status/:jobId
 ```
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| status | string | "processing", "completed", "failed" |
-| progress | number | Completion percentage (0-100) |
-| resultUrl | string | URL of processed image (when completed) |
-| error | string | Error message (when failed) |
+
+| Param Name | Param Type | Description                             |
+| ---------- | ---------- | --------------------------------------- |
+| status     | string     | "processing", "completed", "failed"     |
+| progress   | number     | Completion percentage (0-100)           |
+| resultUrl  | string     | URL of processed image (when completed) |
+| error      | string     | Error message (when failed)             |
 
 **User Gallery**
+
 ```
 GET /api/gallery/:userId
 ```
 
 Response:
-| Param Name | Param Type | Description |
-|------------|------------|-------------|
-| images | array | Array of processed image objects |
-| totalCount | number | Total number of user's images |
-| page | number | Current page number |
+
+| Param Name | Param Type | Description                      |
+| ---------- | ---------- | -------------------------------- |
+| images     | array      | Array of processed image objects |
+| totalCount | number     | Total number of user's images    |
+| page       | number     | Current page number              |
 
 ## 5. Server Architecture Diagram
 
@@ -151,11 +174,12 @@ graph TD
   B --> C[Authentication Middleware]
   C --> D[Controller Layer]
   D --> E[Service Layer]
-  E --> F[Gemini API Client]
-  E --> G[Image Processing Service]
+  E --> F[Gemini 2.5 Flash Image Client]
+  E --> G[Sharp Fallback Processing]
   E --> H[Supabase Client]
-  H --> I[(Supabase Database)]
-  H --> J[Supabase Storage]
+  E --> I[Enhanced Logging Service]
+  H --> J[(Supabase Database)]
+  H --> K[Supabase Storage]
 
   subgraph "Server Application"
     B
@@ -173,9 +197,94 @@ graph TD
   end
 ```
 
-## 6. Data Model
+## 6. AI Image Generation Workflow
 
-### 6.1 Data Model Definition
+### 6.1 Primary Workflow (Gemini 2.5 Flash Image)
+
+```mermaid
+sequenceDiagram
+    participant Client
+    participant API
+    participant Gemini as Gemini 2.5 Flash Image
+    participant Storage
+    
+    Client->>API: POST /api/effects/apply
+    API->>API: Load original image
+    API->>API: Create intensity-based prompt
+    API->>Gemini: Send image + generation prompt
+    
+    alt AI Generation Success
+        Gemini->>API: Return generated image data
+        API->>API: Process & optimize generated image
+        API->>Storage: Save generated image
+        API->>Client: Return success with ai_generated method
+    else AI Generation Fails
+        API->>API: Apply Sharp fallback effects
+        API->>Storage: Save processed image
+        API->>Client: Return success with fallback_effects method
+    end
+```
+
+### 6.2 Effect Types and Prompts
+
+| Effect Type     | AI Generation Prompt                                                                                                                                                                                       | Fallback Processing                                                                     |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
+| big\_head       | "Transform this image to create a comical big head effect where the person's head is dramatically enlarged while keeping facial features recognizable and maintaining a fun, cartoonish appearance"        | Enhanced resize, saturation, and sharpening                                             |
+| artistic\_style | "Transform this image to create a comical big body effect where the person's body proportions are exaggerated in a fun, cartoonish way while keeping the face normal and maintaining a playful appearance" | Advanced blur, color modulation, and gamma correction                                   |
+| aging           | "Using the provided image of this person, make this person look older with natural aging effects"                                                                                                          | Reduced brightness/saturation, increased gamma, linear adjustments for aging appearance |
+
+### 6.3 Logging and Monitoring
+
+The system includes comprehensive logging for:
+
+* Job ID and effect parameters
+
+* Image metadata (size, format, MIME type)
+
+* API call timing and duration
+
+* Response analysis (image data vs text response)
+
+* Fallback mechanism triggers
+
+* Processing method used (AI-generated vs fallback)
+
+### 6.4 Technical Implementation Details
+
+**Gemini 2.5 Flash Image Integration:**
+
+* Model: `gemini-2.5-flash-image-preview`
+
+* Input: Base64-encoded image + text prompt
+
+* Output: Generated image data (base64) or text response
+
+* Fallback: Enhanced Sharp image processing when AI generation fails
+
+**Response Processing:**
+
+```typescript
+// Check for generated image in response
+if (part.inlineData && part.inlineData.data) {
+  // Process AI-generated image
+  generatedImageBuffer = Buffer.from(part.inlineData.data, 'base64');
+} else {
+  // Apply fallback Sharp effects
+  processedBuffer = await sharp(imageBuffer).modulate({...}).toBuffer();
+}
+```
+
+**Intensity Mapping:**
+
+* 0.1-0.5: "subtle but visible"
+
+* 0.5-0.8: "moderate but noticeable"
+
+* 0.8-1.0: "very dramatic and exaggerated"
+
+## 7. Data Model
+
+### 7.1 Data Model Definition
 
 ```mermaid
 erDiagram
@@ -225,9 +334,10 @@ erDiagram
   }
 ```
 
-### 6.2 Data Definition Language
+### 7.2 Data Definition Language
 
 **Users Table**
+
 ```sql
 -- Create users table (handled by Supabase Auth)
 CREATE TABLE public.user_profiles (
@@ -257,6 +367,7 @@ GRANT ALL PRIVILEGES ON public.user_profiles TO authenticated;
 ```
 
 **Images Table**
+
 ```sql
 CREATE TABLE public.images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -288,6 +399,7 @@ GRANT ALL PRIVILEGES ON public.images TO authenticated;
 ```
 
 **Processing Jobs Table**
+
 ```sql
 CREATE TABLE public.processing_jobs (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -323,6 +435,7 @@ GRANT ALL PRIVILEGES ON public.processing_jobs TO authenticated;
 ```
 
 **Processed Images Table**
+
 ```sql
 CREATE TABLE public.processed_images (
     id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -354,3 +467,4 @@ CREATE POLICY "Users can view processed images" ON public.processed_images
 GRANT SELECT ON public.processed_images TO anon;
 GRANT ALL PRIVILEGES ON public.processed_images TO authenticated;
 ```
+

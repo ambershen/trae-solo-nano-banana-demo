@@ -1,51 +1,13 @@
-import express, { Request, Response } from 'express';
-import multer from 'multer';
-import sharp from 'sharp';
+import type { VercelRequest, VercelResponse } from '@vercel/node';
 import { v4 as uuidv4 } from 'uuid';
-import path from 'path';
 import { promises as fs } from 'fs';
+import path from 'path';
+import sharp from 'sharp';
 import { GoogleGenerativeAI } from '@google/generative-ai';
-import { fileURLToPath } from 'url';
-
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
-const router = express.Router();
 
 // Initialize Gemini AI for image generation
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY || 'AIzaSyBZCrJUTIziuZJVXRoyoWac5vFkTO-mqDU');
 const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
-
-// Configure multer for memory storage
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 10 * 1024 * 1024, // 10MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    const allowedTypes = ['image/jpeg', 'image/png', 'image/webp'];
-    if (allowedTypes.includes(file.mimetype)) {
-      cb(null, true);
-    } else {
-      cb(new Error('Invalid file type. Only JPEG, PNG, and WebP are allowed.'));
-    }
-  },
-});
-
-// In-memory storage for processing jobs
-interface ProcessingJob {
-  id: string;
-  status: 'pending' | 'processing' | 'completed' | 'failed';
-  progress: number;
-  originalImagePath?: string;
-  resultImagePath?: string;
-  error?: string;
-  createdAt: Date;
-  completedAt?: Date;
-  aiResponse?: string;
-}
-
-const processingJobs = new Map<string, ProcessingJob>();
 
 // Available effects for image generation
 const EFFECTS = {
@@ -74,98 +36,38 @@ const EFFECTS = {
     description: 'Transform into a collectible figure',
     prompt: 'Create a 1/7 scale commercialized figure of the character in the illustration, in a realistic style and environment. Place the figure on a computer desk, using a circular transparent acrylic base without any text. On the computer screen, display the ZBrush modeling process of the figure. Next to the computer screen, place a BANDAI-style toy packaging box printed with the original artwork.'
   }
+};
+
+// In-memory storage for processing jobs (Note: In production, use a database)
+interface ProcessingJob {
+  id: string;
+  status: 'pending' | 'processing' | 'completed' | 'failed';
+  progress: number;
+  originalImagePath?: string;
+  resultImagePath?: string;
+  error?: string;
+  createdAt: Date;
+  completedAt?: Date;
+  aiResponse?: string;
 }
 
-// Image upload endpoint
-router.post('/upload', upload.single('image'), async (req: Request, res: Response) => {
-  try {
-    console.log('Upload request received');
-    console.log('Request file:', req.file ? 'Present' : 'Missing');
-    
-    if (!req.file) {
-      console.log('No file in request');
-      return res.status(400).json({
-        success: false,
-        error: 'No image file provided'
-      });
-    }
+// Simple in-memory store (in production, use Redis or database)
+const processingJobs = new Map<string, ProcessingJob>();
 
-    console.log('File details:', {
-      originalname: req.file.originalname,
-      mimetype: req.file.mimetype,
-      size: req.file.size,
-      bufferLength: req.file.buffer.length
-    });
+export default async function handler(req: VercelRequest, res: VercelResponse) {
+  // Enable CORS
+  res.setHeader('Access-Control-Allow-Origin', '*');
+  res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
 
-    // Generate unique ID for the image
-    const imageId = uuidv4();
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    
-    // Ensure uploads directory exists
-    await fs.mkdir(uploadsDir, { recursive: true });
-    
-    // Process and save the image
-    const originalFilename = req.file.originalname;
-    const fileExtension = path.extname(originalFilename).toLowerCase();
-    const filename = `${imageId}${fileExtension}`;
-    const filepath = path.join(uploadsDir, filename);
-    
-    // Validate image buffer before processing
-    if (!req.file.buffer || req.file.buffer.length === 0) {
-      throw new Error('Empty image buffer');
-    }
-    
-    // Optimize image using Sharp
-    let processedBuffer = req.file.buffer;
-    let metadata;
-    
-    try {
-      metadata = await sharp(req.file.buffer).metadata();
-      console.log('Image metadata:', metadata);
-    } catch (sharpError) {
-      console.error('Sharp metadata error:', sharpError);
-      throw new Error('Invalid image format or corrupted image');
-    }
-    
-    // Resize if too large (max 2048px on longest side)
-    if (metadata.width && metadata.height) {
-      const maxDimension = Math.max(metadata.width, metadata.height);
-      if (maxDimension > 2048) {
-        processedBuffer = await sharp(req.file.buffer)
-          .resize(2048, 2048, { fit: 'inside', withoutEnlargement: true })
-          .jpeg({ quality: 85 })
-          .toBuffer();
-      }
-    }
-    
-    // Save processed image
-    await fs.writeFile(filepath, processedBuffer);
-    
-    // Get final metadata
-    const finalMetadata = await sharp(processedBuffer).metadata();
-    
-    res.json({
-      success: true,
-      imageId,
-      imageUrl: `/api/images/file/${filename}`,
-      metadata: {
-        width: finalMetadata.width,
-        height: finalMetadata.height,
-        format: finalMetadata.format,
-        size: processedBuffer.length
-      }
-    });
-  } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to upload image'
-    });
+  if (req.method === 'OPTIONS') {
+    return res.status(200).end();
   }
-});
 
-// Apply effect endpoint
-router.post('/apply-effect', async (req: Request, res: Response) => {
+  if (req.method !== 'POST') {
+    return res.status(405).json({ success: false, error: 'Method not allowed' });
+  }
+
   try {
     console.log('Apply effect request body:', req.body);
     console.log('Apply effect request headers:', req.headers);
@@ -223,73 +125,7 @@ router.post('/apply-effect', async (req: Request, res: Response) => {
       error: 'Failed to start processing'
     });
   }
-});
-
-// Get processing status
-router.get('/status/:jobId', (req: Request, res: Response) => {
-  const { jobId } = req.params;
-  const job = processingJobs.get(jobId);
-  
-  if (!job) {
-    return res.status(404).json({
-      success: false,
-      error: 'Job not found'
-    });
-  }
-  
-  res.json({
-    status: job.status,
-    progress: job.progress,
-    resultUrl: job.resultImagePath ? `/api/images/file/${path.basename(job.resultImagePath)}` : undefined,
-    error: job.error
-  });
-});
-
-// Serve image files
-router.get('/file/:filename', async (req: Request, res: Response) => {
-  try {
-    const { filename } = req.params;
-    const filepath = path.join(process.cwd(), 'uploads', filename);
-    
-    // Check if file exists
-    await fs.access(filepath);
-    
-    // Set appropriate headers
-    const ext = path.extname(filename).toLowerCase();
-    const mimeTypes: { [key: string]: string } = {
-      '.jpg': 'image/jpeg',
-      '.jpeg': 'image/jpeg',
-      '.png': 'image/png',
-      '.webp': 'image/webp'
-    };
-    
-    res.setHeader('Content-Type', mimeTypes[ext] || 'application/octet-stream');
-    res.setHeader('Cache-Control', 'public, max-age=31536000'); // 1 year cache
-    
-    // Stream the file
-    const fileBuffer = await fs.readFile(filepath);
-    res.send(fileBuffer);
-  } catch (error) {
-    res.status(404).json({
-      success: false,
-      error: 'File not found'
-    });
-  }
-});
-
-// Get available effects
-router.get('/effects', (req: Request, res: Response) => {
-  const effectsList = Object.entries(EFFECTS).map(([key, effect]) => ({
-    id: key,
-    name: effect.name,
-    description: effect.description
-  }));
-  
-  res.json({
-    success: true,
-    effects: effectsList
-  });
-});
+}
 
 // AI image generation function using Gemini 2.5 Flash Image
 async function processImageWithAI(jobId: string, imageId: string, effectType: string, intensity: number) {
@@ -302,8 +138,8 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 10;
     processingJobs.set(jobId, job);
     
-    // Find the original image
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    // Find the original image in /tmp directory
+    const uploadsDir = '/tmp';
     const files = await fs.readdir(uploadsDir);
     const originalFile = files.find(file => file.startsWith(imageId));
     
@@ -488,4 +324,5 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
   }
 }
 
-export default router;
+// Export the job storage for other functions to access
+export { processingJobs };

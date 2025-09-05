@@ -11,7 +11,8 @@ import {
   Palette,
   Sparkles,
   Image as ImageIcon,
-  Zap
+  Zap,
+  Box
 } from 'lucide-react';
 
 interface ProcessingJob {
@@ -46,32 +47,39 @@ export default function Editor() {
 
   const effects: Effect[] = [
     {
-      id: 'big_head',
-      name: 'Big Head Effect',
-      description: 'Make heads appear larger and more prominent',
-      icon: <Camera className="w-6 h-6" />,
-      gradient: 'from-purple-500 to-pink-500'
-    },
-    {
-      id: 'artistic_style',
-      name: 'Artistic Style',
-      description: 'Transform into beautiful artwork',
-      icon: <Palette className="w-6 h-6" />,
-      gradient: 'from-blue-500 to-cyan-500'
-    },
-    {
-      id: 'cartoon_effect',
-      name: 'Cartoon Effect',
-      description: 'Convert to cartoon-like appearance',
+      id: 'anime_style',
+      name: 'Anime Style',
+      description: 'Transform into anime character',
       icon: <Sparkles className="w-6 h-6" />,
-      gradient: 'from-green-500 to-emerald-500'
+      gradient: 'from-gray-800 to-black'
     },
     {
-      id: 'vintage_filter',
-      name: 'Vintage Filter',
-      description: 'Apply retro vintage look',
-      icon: <ImageIcon className="w-6 h-6" />,
-      gradient: 'from-orange-500 to-red-500'
+      id: 'picasso_style',
+      name: 'Picasso Style',
+      description: 'Cubist artistic transformation',
+      icon: <Palette className="w-6 h-6" />,
+      gradient: 'from-gray-700 to-gray-900'
+    },
+    {
+      id: 'oil_painting',
+      name: 'Oil Painting Style',
+      description: 'Transform into a classic oil painting',
+      icon: <Palette className="w-6 h-6" />,
+      gradient: 'from-gray-500 to-gray-700'
+    },
+    {
+      id: 'frida_effect',
+      name: 'Frida Style',
+      description: 'Transform into Frida Kahlo painting style',
+      icon: <Palette className="w-6 h-6" />,
+      gradient: 'from-gray-400 to-gray-600'
+    },
+    {
+      id: 'miniature_effect',
+      name: 'Miniature Effect',
+      description: 'Transform into a collectible figure',
+      icon: <Box className="w-6 h-6" />,
+      gradient: 'from-gray-300 to-gray-500'
     }
   ];
 
@@ -237,9 +245,9 @@ export default function Editor() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-blue-50">
+    <div className="min-h-screen bg-gray-50">
       {/* Navigation */}
-      <nav className="bg-white/80 backdrop-blur-md border-b border-gray-200 sticky top-0 z-50">
+      <nav className="bg-white/90 backdrop-blur-sm border-b border-gray-300 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
@@ -252,18 +260,16 @@ export default function Editor() {
               </button>
               <div className="h-6 w-px bg-gray-300"></div>
               <div className="flex items-center space-x-2">
-                <div className="w-8 h-8 bg-gradient-to-r from-purple-600 to-blue-600 rounded-lg flex items-center justify-center">
+                <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-sm">
                   <Zap className="w-5 h-5 text-white" />
                 </div>
-                <h1 className="text-xl font-bold bg-gradient-to-r from-purple-600 to-blue-600 bg-clip-text text-transparent">
-                  Photo Editor
-                </h1>
+                <h1 className="text-xl font-bold bg-gradient-to-r from-black via-gray-400 to-amber-100 bg-clip-text text-transparent">Photo Editor</h1>
               </div>
             </div>
             {processedImageUrl && (
               <button
                 onClick={handleDownload}
-                className="bg-gradient-to-r from-green-600 to-emerald-600 text-white px-6 py-2 rounded-lg font-medium hover:from-green-700 hover:to-emerald-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
+                className="bg-black text-white px-6 py-2 rounded-lg font-semibold hover:bg-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center space-x-2"
               >
                 <Download className="w-4 h-4" />
                 <span>Download</span>
@@ -284,8 +290,8 @@ export default function Editor() {
                 <div
                   className={`relative border-2 border-dashed rounded-xl p-12 transition-all duration-300 ${
                     dragActive 
-                      ? 'border-purple-500 bg-purple-50 scale-105' 
-                      : 'border-gray-300 bg-gray-50 hover:border-purple-400 hover:bg-purple-50'
+                      ? 'border-black bg-gray-100 scale-105' 
+                      : 'border-gray-400 bg-gray-50 hover:border-gray-600 hover:bg-gray-50'
                   }`}
                   onDragEnter={handleDrag}
                   onDragLeave={handleDrag}
@@ -302,7 +308,7 @@ export default function Editor() {
                   />
                   
                   <div className="text-center cursor-pointer">
-                    <div className="w-16 h-16 bg-gradient-to-r from-purple-600 to-blue-600 rounded-full flex items-center justify-center mx-auto mb-4">
+                    <div className="w-16 h-16 bg-black rounded-full flex items-center justify-center mx-auto mb-4">
                       <Upload className="w-8 h-8 text-white" />
                     </div>
                     <h3 className="text-xl font-semibold text-gray-900 mb-2">
@@ -331,7 +337,7 @@ export default function Editor() {
                   <h2 className="text-2xl font-bold text-gray-900">Preview</h2>
                   <button
                     onClick={() => fileInputRef.current?.click()}
-                    className="text-purple-600 hover:text-purple-700 font-medium flex items-center space-x-2"
+                    className="text-black hover:text-gray-700 font-medium flex items-center space-x-2"
                   >
                     <Upload className="w-4 h-4" />
                     <span>Change Image</span>
@@ -366,12 +372,12 @@ export default function Editor() {
                     <div className="aspect-square bg-gray-100 rounded-xl overflow-hidden flex items-center justify-center">
                       {isProcessing ? (
                         <div className="text-center">
-                          <Loader2 className="w-12 h-12 text-purple-600 animate-spin mx-auto mb-4" />
+                          <Loader2 className="w-12 h-12 text-black animate-spin mx-auto mb-4" />
                           <p className="text-gray-600">Processing...</p>
                           {processingJob?.progress && (
                             <div className="w-32 bg-gray-200 rounded-full h-2 mt-2">
                               <div 
-                                className="bg-purple-600 h-2 rounded-full transition-all duration-300"
+                                className="bg-black h-2 rounded-full transition-all duration-300"
                                 style={{ width: `${processingJob.progress}%` }}
                               ></div>
                             </div>
@@ -407,8 +413,8 @@ export default function Editor() {
                     key={effect.id}
                     className={`relative p-4 rounded-xl border-2 cursor-pointer transition-all duration-200 ${
                       selectedEffect === effect.id
-                        ? 'border-purple-500 bg-purple-50'
-                        : 'border-gray-200 hover:border-purple-300 hover:bg-purple-50'
+                        ? 'border-black bg-gray-100'
+                        : 'border-gray-200 hover:border-gray-400 hover:bg-gray-50'
                     }`}
                     onClick={() => setSelectedEffect(effect.id)}
                   >
@@ -425,7 +431,7 @@ export default function Editor() {
                         </p>
                       </div>
                       {selectedEffect === effect.id && (
-                        <CheckCircle className="w-5 h-5 text-purple-600 flex-shrink-0" />
+                        <CheckCircle className="w-5 h-5 text-black flex-shrink-0" />
                       )}
                     </div>
                   </div>
@@ -435,7 +441,7 @@ export default function Editor() {
               <button
                 onClick={handleApplyEffect}
                 disabled={!selectedFile || !selectedEffect || isProcessing}
-                className="w-full mt-6 bg-gradient-to-r from-purple-600 to-blue-600 text-white py-3 px-6 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:from-purple-700 hover:to-blue-700 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
+                className="w-full mt-6 bg-black text-white py-3 px-6 rounded-xl font-semibold disabled:opacity-50 disabled:cursor-not-allowed hover:bg-gray-800 transition-all duration-200 shadow-lg hover:shadow-xl flex items-center justify-center space-x-2"
               >
                 {isProcessing ? (
                   <>
@@ -460,26 +466,26 @@ export default function Editor() {
                   <div className="flex items-center space-x-3">
                     {processingJob.status === 'processing' && (
                       <>
-                        <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-                        <span className="text-blue-600 font-medium">Processing...</span>
+                        <Loader2 className="w-5 h-5 text-black animate-spin" />
+                        <span className="text-black font-medium">Processing...</span>
                       </>
                     )}
                     {processingJob.status === 'completed' && (
                       <>
-                        <CheckCircle className="w-5 h-5 text-green-600" />
-                        <span className="text-green-600 font-medium">Completed!</span>
+                        <CheckCircle className="w-5 h-5 text-gray-800" />
+                        <span className="text-gray-800 font-medium">Completed!</span>
                       </>
                     )}
                     {processingJob.status === 'failed' && (
                       <>
-                        <AlertCircle className="w-5 h-5 text-red-600" />
-                        <span className="text-red-600 font-medium">Failed</span>
+                        <AlertCircle className="w-5 h-5 text-gray-600" />
+                        <span className="text-gray-600 font-medium">Failed</span>
                       </>
                     )}
                   </div>
                   
                   {processingJob.error && (
-                    <p className="text-sm text-red-600 bg-red-50 p-3 rounded-lg">
+                    <p className="text-sm text-gray-700 bg-gray-100 p-3 rounded-lg border border-gray-300">
                       {processingJob.error}
                     </p>
                   )}
@@ -489,6 +495,30 @@ export default function Editor() {
           </div>
         </div>
       </div>
+      
+      {/* Footer */}
+      <footer className="bg-gray-900 text-white py-12 px-4">
+        <div className="max-w-7xl mx-auto text-center">
+          <div className="flex items-center justify-center space-x-2 mb-4">
+            <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center">
+              <Zap className="w-5 h-5 text-white" />
+            </div>
+            <h3 className="text-xl font-bold">
+              AI Photo Effects Studio
+            </h3>
+          </div>
+          <p className="text-gray-400 mb-6">
+            Transform your photos with the power of artificial intelligence.
+          </p>
+          <div className="flex justify-center space-x-6 text-sm text-gray-400">
+            <span>Powered by Gemini 2.5 Flash</span>
+            <span>•</span>
+            <span>Built with React & TypeScript</span>
+            <span>•</span>
+            <span>Made with ❤️</span>
+          </div>
+        </div>
+      </footer>
     </div>
   );
 }
