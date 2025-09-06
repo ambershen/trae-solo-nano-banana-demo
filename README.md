@@ -7,33 +7,12 @@ An AI-powered image transformation application that applies stunning artistic ef
 
 ## ✨ Features
 
-- **AI-Powered Effects**: Transform images using Google Gemini 2.5 Flash Image API
 - **Multiple Art Styles**: 
   - 🎨 Anime Style - Transform portraits into beautiful anime characters
   - 🖼️ Picasso Style - Apply cubist artistic transformations
   - 🎭 Oil Painting - Create classic oil painting effects
   - 🏛️ Frida Kahlo Style - Artistic transformations inspired by Frida Kahlo
   - 🏠 Miniature Effect - Create tilt-shift miniature-like effects
-- **Adjustable Intensity**: Fine-tune effect strength from subtle to dramatic
-- **Real-time Processing**: Live progress updates during AI generation
-- **Image Optimization**: Automatic image compression and optimization
-- **Modern UI**: Clean, responsive interface built with React and Tailwind CSS
-
-## 🛠️ Tech Stack
-
-### Frontend
-- **React 18** with TypeScript
-- **Vite** for fast development and building
-- **Tailwind CSS** for styling
-- **Zustand** for state management
-- **Lucide React** for icons
-
-### Backend
-- **Node.js** with Express
-- **TypeScript** for type safety
-- **Google Gemini AI** for image processing
-- **Sharp** for image optimization
-- **Multer** for file uploads
 
 ## 📋 Prerequisites
 
