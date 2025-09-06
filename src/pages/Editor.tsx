@@ -251,14 +251,6 @@ export default function Editor() {
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
           <div className="flex justify-between items-center h-16">
             <div className="flex items-center space-x-4">
-              <button
-                onClick={() => navigate('/')}
-                className="flex items-center space-x-2 text-gray-600 hover:text-gray-900 transition-colors"
-              >
-                <ArrowLeft className="w-5 h-5" />
-                <span>Back to Home</span>
-              </button>
-              <div className="h-6 w-px bg-gray-300"></div>
               <div className="flex items-center space-x-2">
                 <div className="w-8 h-8 bg-black rounded-lg flex items-center justify-center text-white font-bold text-sm">
                   <Zap className="w-5 h-5 text-white" />
