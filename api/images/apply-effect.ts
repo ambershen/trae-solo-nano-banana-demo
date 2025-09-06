@@ -12,10 +12,11 @@ let model: any = null;
 function getGeminiModel() {
   if (!genAI) {
     const apiKey = process.env.GOOGLE_API_KEY;
-    console.log(`🔑 Vercel Environment check - API Key exists: ${!!apiKey}`);
+    console.log(`🔑 Environment check - VERCEL: ${!!process.env.VERCEL}, API Key exists: ${!!apiKey}`);
+    console.log(`🔑 All env vars: ${Object.keys(process.env).filter(k => k.includes('GOOGLE')).join(', ')}`);
     
     if (!apiKey) {
-      const error = `GOOGLE_API_KEY environment variable is not set in Vercel deployment`;
+      const error = `GOOGLE_API_KEY environment variable is not set in ${process.env.VERCEL ? 'Vercel deployment' : 'local environment'}`;
       console.error(`❌ ${error}`);
       throw new Error(error);
     }
