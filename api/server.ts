@@ -1,6 +1,19 @@
 /**
  * local server entry file, for local development
  */
+
+// Load environment variables FIRST before importing app
+import path from 'path';
+import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+// for esm mode
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
+
+// load env from project root BEFORE importing app
+dotenv.config({ path: path.join(__dirname, '..', '.env') });
+
 import app from './app.js';
 
 /**

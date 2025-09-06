@@ -5,9 +5,40 @@ import path from 'path';
 import sharp from 'sharp';
 import { GoogleGenerativeAI } from '@google/generative-ai';
 
-// Initialize Gemini AI for image generation
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
+// Initialize Gemini AI for image generation (lazy initialization)
+let genAI: GoogleGenerativeAI | null = null;
+let model: any = null;
+
+function getGeminiModel() {
+  if (!genAI) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    console.log(`🔑 Vercel Environment check - API Key exists: ${!!apiKey}`);
+    
+    if (!apiKey) {
+      const error = `GOOGLE_API_KEY environment variable is not set in Vercel deployment`;
+      console.error(`❌ ${error}`);
+      throw new Error(error);
+    }
+    
+    if (apiKey.length < 20) {
+      const error = `GOOGLE_API_KEY appears to be invalid (too short: ${apiKey.length} characters)`;
+      console.error(`❌ ${error}`);
+      throw new Error(error);
+    }
+    
+    console.log(`🚀 Initializing Gemini AI in Vercel with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+    
+    try {
+      genAI = new GoogleGenerativeAI(apiKey);
+      model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      console.log('✅ Gemini AI initialized successfully in Vercel');
+    } catch (initError) {
+      console.error(`❌ Failed to initialize Gemini AI in Vercel: ${initError}`);
+      throw new Error(`Gemini AI initialization failed: ${initError}`);
+    }
+  }
+  return model;
+}
 
 // Available effects for image generation
 const EFFECTS = {
@@ -69,6 +100,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
+    console.log('🚀 Vercel apply-effect endpoint called');
+    
+    // Validate environment first
+    try {
+      getGeminiModel();
+      console.log('✅ Gemini model validation passed');
+    } catch (envError) {
+      console.error('❌ Environment validation failed:', envError);
+      return res.status(500).json({ 
+        success: false,
+        error: 'AI service configuration error', 
+        details: envError instanceof Error ? envError.message : 'Unknown configuration error'
+      });
+    }
+    
     console.log('Apply effect request body:', req.body);
     console.log('Apply effect request headers:', req.headers);
     
@@ -102,13 +148,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     
     processingJobs.set(jobId, job);
     
+    console.log(`📝 Created job ${jobId} for image ${imageId} with effect ${effectType}`);
+    
     // Start processing asynchronously
     processImageWithAI(jobId, imageId, effectType, intensity).catch(error => {
-      console.error('Processing error:', error);
+      console.error(`❌ Error processing image job ${jobId}:`, error);
       const job = processingJobs.get(jobId);
       if (job) {
         job.status = 'failed';
-        job.error = 'Processing failed';
+        job.error = error instanceof Error ? error.message : 'Unknown processing error';
         processingJobs.set(jobId, job);
       }
     });
@@ -119,10 +167,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       estimatedTime: 30 // seconds
     });
   } catch (error) {
-    console.error('Apply effect error:', error);
+    console.error('❌ Critical error in apply-effect endpoint:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to start processing'
+      error: 'Failed to start processing',
+      details: error instanceof Error ? error.message : 'Unknown server error'
     });
   }
 }
@@ -133,6 +182,18 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
   if (!job) return;
   
   try {
+    console.log(`🎨 Processing image ${imageId} with effect ${effectType} in Vercel`);
+    
+    // Get Gemini model with proper error handling
+    let geminiModel;
+    try {
+      geminiModel = getGeminiModel();
+      console.log('✅ Gemini model obtained successfully');
+    } catch (modelError) {
+      console.error('❌ Failed to get Gemini model:', modelError);
+      throw new Error(`AI service unavailable: ${modelError instanceof Error ? modelError.message : 'Unknown model error'}`);
+    }
+    
     // Update job status
     job.status = 'processing';
     job.progress = 10;
@@ -144,13 +205,16 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     const originalFile = files.find(file => file.startsWith(imageId));
     
     if (!originalFile) {
-      throw new Error('Original image not found');
+      const error = 'Original image not found';
+      console.error(`❌ ${error}`);
+      throw new Error(error);
     }
     
     const originalPath = path.join(uploadsDir, originalFile);
     job.originalImagePath = originalPath;
     job.progress = 20;
     processingJobs.set(jobId, job);
+    console.log(`📁 Image loaded from ${originalPath}, processing with intensity ${intensity}`);
     
     // Read and prepare image for Gemini
     const imageBuffer = await fs.readFile(originalPath);

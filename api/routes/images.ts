@@ -12,9 +12,41 @@ const __dirname = path.dirname(__filename);
 
 const router = express.Router();
 
-// Initialize Gemini AI for image generation
-const genAI = new GoogleGenerativeAI(process.env.GOOGLE_API_KEY!);
-const model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
+// Initialize Gemini AI for image generation (lazy initialization)
+let genAI: GoogleGenerativeAI | null = null;
+let model: any = null;
+
+function getGeminiModel() {
+  if (!genAI) {
+    const apiKey = process.env.GOOGLE_API_KEY;
+    console.log(`🔑 Environment check - VERCEL: ${!!process.env.VERCEL}, API Key exists: ${!!apiKey}`);
+    
+    if (!apiKey) {
+      const error = `GOOGLE_API_KEY environment variable is not set in ${process.env.VERCEL ? 'Vercel deployment' : 'local environment'}`;
+      console.error(`❌ ${error}`);
+      throw new Error(error);
+    }
+    
+    if (apiKey.length < 20) {
+      const error = `GOOGLE_API_KEY appears to be invalid (too short: ${apiKey.length} characters)`;
+      console.error(`❌ ${error}`);
+      throw new Error(error);
+    }
+    
+    console.log(`🚀 Initializing Gemini AI with API key: ${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}`);
+    console.log(`🌍 Environment: ${process.env.VERCEL ? 'Vercel Serverless' : 'Local Development'}`);
+    
+    try {
+      genAI = new GoogleGenerativeAI(apiKey);
+      model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      console.log('✅ Gemini AI initialized successfully');
+    } catch (initError) {
+      console.error(`❌ Failed to initialize Gemini AI: ${initError}`);
+      throw new Error(`Gemini AI initialization failed: ${initError}`);
+    }
+  }
+  return model;
+}
 
 // Configure multer for memory storage
 const upload = multer({
@@ -99,7 +131,10 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
 
     // Generate unique ID for the image
     const imageId = uuidv4();
-    const uploadsDir = path.join(process.cwd(), 'uploads');
+    
+    // Use Vercel-compatible temporary storage
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+    console.log(`📁 Using storage directory: ${uploadsDir}`);
     
     // Ensure uploads directory exists
     await fs.mkdir(uploadsDir, { recursive: true });
@@ -167,8 +202,22 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
 // Apply effect endpoint
 router.post('/apply-effect', async (req: Request, res: Response) => {
   try {
+    console.log('🚀 Vercel apply-effect endpoint called');
     console.log('Apply effect request body:', req.body);
     console.log('Apply effect request headers:', req.headers);
+    
+    // Validate environment first
+    try {
+      getGeminiModel();
+      console.log('✅ Gemini model validation passed');
+    } catch (envError) {
+      console.error('❌ Environment validation failed:', envError);
+      return res.status(500).json({ 
+        success: false,
+        error: 'AI service configuration error', 
+        details: envError instanceof Error ? envError.message : 'Unknown configuration error'
+      });
+    }
     
     const { imageId, effectType, intensity = 0.8 } = req.body;
     
@@ -200,13 +249,15 @@ router.post('/apply-effect', async (req: Request, res: Response) => {
     
     processingJobs.set(jobId, job);
     
+    console.log(`📝 Created job ${jobId} for image ${imageId} with effect ${effectType}`);
+    
     // Start processing asynchronously
     processImageWithAI(jobId, imageId, effectType, intensity).catch(error => {
-      console.error('Processing error:', error);
+      console.error(`❌ Error processing image job ${jobId}:`, error);
       const job = processingJobs.get(jobId);
       if (job) {
         job.status = 'failed';
-        job.error = 'Processing failed';
+        job.error = error instanceof Error ? error.message : 'Unknown processing error';
         processingJobs.set(jobId, job);
       }
     });
@@ -217,10 +268,11 @@ router.post('/apply-effect', async (req: Request, res: Response) => {
       estimatedTime: 30 // seconds
     });
   } catch (error) {
-    console.error('Apply effect error:', error);
+    console.error('❌ Critical error in apply-effect endpoint:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to start processing'
+      error: 'Failed to start processing',
+      details: error instanceof Error ? error.message : 'Unknown server error'
     });
   }
 });
@@ -249,7 +301,9 @@ router.get('/status/:jobId', (req: Request, res: Response) => {
 router.get('/file/:filename', async (req: Request, res: Response) => {
   try {
     const { filename } = req.params;
-    const filepath = path.join(process.cwd(), 'uploads', filename);
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+    const filepath = path.join(uploadsDir, filename);
+    console.log(`📁 Serving file from: ${filepath}`);
     
     // Check if file exists
     await fs.access(filepath);
@@ -295,17 +349,44 @@ router.get('/effects', (req: Request, res: Response) => {
 async function processImageWithAI(jobId: string, imageId: string, effectType: string, intensity: number) {
   const job = processingJobs.get(jobId);
   if (!job) return;
-  
+
   try {
+    console.log(`🚀 Starting AI processing for job ${jobId} in environment: ${process.env.VERCEL ? 'Vercel' : 'Local'}`);
+    console.log(`📊 Environment check - GOOGLE_API_KEY exists: ${!!process.env.GOOGLE_API_KEY}`);
+    console.log(`📊 Current working directory: ${process.cwd()}`);
+    console.log(`📊 Available memory: ${process.memoryUsage().heapUsed / 1024 / 1024}MB`);
+    
+    // Get Gemini model with proper error handling
+    let geminiModel;
+    try {
+      geminiModel = getGeminiModel();
+      console.log('✅ Gemini model obtained successfully for processing');
+    } catch (modelError) {
+      console.error('❌ Failed to get Gemini model for processing:', modelError);
+      throw new Error(`AI service unavailable: ${modelError instanceof Error ? modelError.message : 'Unknown model error'}`);
+    }
+    
     // Update job status
     job.status = 'processing';
     job.progress = 10;
     processingJobs.set(jobId, job);
+
+    // Find the original image - use consistent storage path
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+    console.log(`📁 Looking for files in: ${uploadsDir}`);
     
-    // Find the original image
-    const uploadsDir = path.join(process.cwd(), 'uploads');
-    const files = await fs.readdir(uploadsDir);
-    const originalFile = files.find(file => file.startsWith(imageId));
+    let files: string[] = [];
+    let originalFile: string | undefined;
+    
+    try {
+      files = await fs.readdir(uploadsDir);
+      originalFile = files.find(file => file.startsWith(imageId));
+      console.log(`📁 Found ${files.length} files, looking for: ${imageId}`);
+      console.log(`📁 Available files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
+    } catch (dirError) {
+      console.error(`❌ Failed to read directory ${uploadsDir}: ${dirError}`);
+      throw new Error(`Cannot access storage directory: ${dirError}`);
+    }
     
     if (!originalFile) {
       throw new Error('Original image not found');
@@ -346,7 +427,13 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     console.log(`Calling Gemini 2.5 Flash Image API for image generation...`);
     const apiCallStart = Date.now();
     
-    const result = await model.generateContent([
+    // Add timeout to prevent hanging
+    const GEMINI_TIMEOUT = 45000; // 45 seconds
+    const timeoutPromise = new Promise((_, reject) => {
+      setTimeout(() => reject(new Error('Gemini API timeout after 45 seconds')), GEMINI_TIMEOUT);
+    });
+    
+    const geminiPromise = geminiModel.generateContent([
       {
         inlineData: {
           data: base64Image,
@@ -355,6 +442,8 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
       },
       prompt
     ]);
+    
+    const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
     
     const apiCallDuration = Date.now() - apiCallStart;
     console.log(`Gemini API call completed in ${apiCallDuration}ms`);

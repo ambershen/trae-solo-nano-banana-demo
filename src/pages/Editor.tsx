@@ -100,6 +100,20 @@ export default function Editor() {
       interval = setInterval(async () => {
         try {
           const response = await fetch(`/api/images/status/${processingJob.id}`);
+          
+          // Check if response is JSON before parsing
+          const contentType = response.headers.get('content-type');
+          if (!contentType || !contentType.includes('application/json')) {
+            console.error('API returned non-JSON response:', await response.text());
+            setProcessingJob(prev => ({ ...prev, status: 'failed', error: 'Server timeout or error' }));
+            setIsProcessing(false);
+            return;
+          }
+          
+          if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+          }
+          
           const data = await response.json();
           
           setProcessingJob(prev => ({ ...prev, ...data }));
@@ -112,6 +126,8 @@ export default function Editor() {
           }
         } catch (error) {
           console.error('Error checking status:', error);
+          setProcessingJob(prev => ({ ...prev, status: 'failed', error: error.message }));
+          setIsProcessing(false);
         }
       }, 2000);
     }
@@ -193,10 +209,18 @@ export default function Editor() {
 
       console.log('Upload response status:', uploadResponse.status);
       
-      if (!uploadResponse.ok) {
+      // Check if response is JSON before parsing
+      const uploadContentType = uploadResponse.headers.get('content-type');
+      if (!uploadContentType || !uploadContentType.includes('application/json')) {
         const errorText = await uploadResponse.text();
-        console.error('Upload failed:', errorText);
-        throw new Error('Failed to upload image');
+        console.error('Upload API returned non-JSON response:', errorText);
+        throw new Error('Server timeout or error during upload');
+      }
+      
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        console.error('Upload failed:', errorData);
+        throw new Error(errorData.error || 'Failed to upload image');
       }
 
       const uploadData = await uploadResponse.json();
@@ -217,8 +241,17 @@ export default function Editor() {
         }),
       });
 
+      // Check if response is JSON before parsing
+      const effectContentType = effectResponse.headers.get('content-type');
+      if (!effectContentType || !effectContentType.includes('application/json')) {
+        const errorText = await effectResponse.text();
+        console.error('Effect API returned non-JSON response:', errorText);
+        throw new Error('Server timeout or error during effect processing');
+      }
+
       if (!effectResponse.ok) {
-        throw new Error('Failed to apply effect');
+        const errorData = await effectResponse.json();
+        throw new Error(errorData.error || 'Failed to apply effect');
       }
 
       const effectData = await effectResponse.json();
