@@ -31,7 +31,7 @@ function getGeminiModel() {
     
     try {
       genAI = new GoogleGenerativeAI(apiKey);
-      model = genAI.getGenerativeModel({ model: 'gemini-1.5-flash' });
+      model = genAI.getGenerativeModel({ model: 'gemini-2.5-flash-image-preview' });
       console.log('✅ Gemini AI initialized successfully in Vercel');
     } catch (initError) {
       console.error(`❌ Failed to initialize Gemini AI in Vercel: ${initError}`);
