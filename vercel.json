@@ -1,30 +1,59 @@
 {
   "name": "nano-banana-effect",
   "functions": {
-    "api/**/*.ts": {
+    "api/index.js": {
       "maxDuration": 60,
       "memory": 1024
     }
   },
   "rewrites": [
     {
+      "source": "/api/images/upload",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/apply-effect",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/status/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/processed/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/file/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/effects",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/api/images/test-gemini",
+      "destination": "/api/index"
+    },
+    {
       "source": "/api/generate-image",
-      "destination": "/api/generate-image"
+      "destination": "/api/index"
     },
     {
       "source": "/api/debug-env",
-      "destination": "/api/debug-env"
+      "destination": "/api/index"
     },
     {
       "source": "/api/(.*)",
       "destination": "/api/index"
     },
     {
-      "source": "/((?!api|assets).*)",
+      "source": "/(.*)",
       "destination": "/index.html"
     }
   ],
   "env": {
-    "NODE_ENV": "production"
+    "NODE_ENV": "production",
+    "GEMINI_API_KEY": "@gemini-api-key"
   }
 }
