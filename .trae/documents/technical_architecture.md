@@ -5,29 +5,27 @@
 ```mermaid
 graph TD
   A[User Browser] --> B[React Frontend Application]
-  B --> C[Supabase SDK]
-  B --> D[Node.js Backend API]
-  C --> E[Supabase Service]
-  D --> F[Google Gemini 2.5 Flash Image API]
-  D --> G[Sharp Image Processing Service]
-  D --> H[File Storage]
+  B --> C[Vercel Serverless Functions]
+  B --> D[Supabase SDK]
+  C --> E[Google Gemini API]
+  C --> F[Sharp Image Processing]
+  D --> G[Supabase Service]
 
   subgraph "Frontend Layer"
     B
   end
 
-  subgraph "Backend Layer"
-    D
-    G
-    H
+  subgraph "Serverless Backend (Vercel)"
+    C
+    F
   end
 
   subgraph "Service Layer (Supabase)"
-    E
+    G
   end
 
   subgraph "External Services"
-    F
+    E
   end
 ```
 
@@ -35,7 +33,7 @@ graph TD
 
 * Frontend: React\@18 + TypeScript + Tailwind CSS\@3 + Vite + React Router
 
-* Backend: Node.js\@18 + Express\@4 + TypeScript + Multer (file uploads)
+* Backend: Vercel Serverless Functions (Node.js runtime)
 
 * Database: Supabase (PostgreSQL)
 
@@ -43,11 +41,13 @@ graph TD
 
 * File Storage: Supabase Storage
 
-* AI Image Generation: Google Gemini 2.5 Flash Image API (gemini-2.5-flash-image-preview)
+* AI Image Generation: Google GenAI SDK (@google/genai) with gemini-2.5-flash-image-preview
 
-* Image Processing: Sharp (Node.js) for fallback effects + Canvas API (Frontend)
+* Image Processing: gemini-2.5-flash-image-preview AI generation (all effects handled by AI)
 
-* Logging: Comprehensive API call tracking and response monitoring
+* Deployment: Vercel (Frontend + Serverless Functions)
+
+* Environment Variables: Vercel Environment Variables (secure API key storage)
 
 ## 3. Route Definitions
 
@@ -69,6 +69,8 @@ graph TD
 ```
 POST /api/images/upload
 ```
+
+*Vercel Serverless Function:* *`/api/images/upload.ts`*
 
 Request (multipart/form-data):
 
@@ -105,8 +107,10 @@ Example Response:
 **Apply AI Image Generation Effect**
 
 ```
-POST /api/effects/apply
+POST /api/images/apply-effect
 ```
+
+*Vercel Serverless Function:* *`/api/images/apply-effect.ts`*
 
 Request:
 
@@ -119,12 +123,12 @@ Request:
 
 Response:
 
-| Param Name    | Param Type | Description                            |
-| ------------- | ---------- | -------------------------------------- |
-| success       | boolean    | Processing status                      |
-| jobId         | string     | Processing job identifier              |
-| estimatedTime | number     | Estimated completion time in seconds   |
-| method        | string     | "ai\_generated" or "fallback\_effects" |
+| Param Name    | Param Type | Description                          |
+| ------------- | ---------- | ------------------------------------ |
+| success       | boolean    | Processing status                    |
+| jobId         | string     | Processing job identifier            |
+| estimatedTime | number     | Estimated completion time in seconds |
+| method        | string     | "ai\_generated" (all effects use AI) |
 
 Example Request:
 
@@ -140,8 +144,10 @@ Example Request:
 **Get Processing Status**
 
 ```
-GET /api/effects/status/:jobId
+GET /api/images/status/[jobId]
 ```
+
+*Vercel Serverless Function:* *`/api/images/status/[jobId].ts`*
 
 Response:
 
@@ -155,8 +161,10 @@ Response:
 **User Gallery**
 
 ```
-GET /api/gallery/:userId
+GET /api/images/gallery/[userId]
 ```
+
+*Vercel Serverless Function:* *`/api/images/gallery/[userId].ts`*
 
 Response:
 
@@ -166,72 +174,69 @@ Response:
 | totalCount | number     | Total number of user's images    |
 | page       | number     | Current page number              |
 
-## 5. Server Architecture Diagram
+## 5. Serverless Architecture Diagram
 
 ```mermaid
 graph TD
-  A[Client Request] --> B[Express Router]
-  B --> C[Authentication Middleware]
-  C --> D[Controller Layer]
-  D --> E[Service Layer]
-  E --> F[Gemini 2.5 Flash Image Client]
-  E --> G[Sharp Fallback Processing]
-  E --> H[Supabase Client]
-  E --> I[Enhanced Logging Service]
-  H --> J[(Supabase Database)]
-  H --> K[Supabase Storage]
+  A[Client Request] --> B[Vercel Edge Runtime]
+  B --> C[Serverless Function Handler]
+  C --> D[Google GenAI SDK]
+  C --> F[Supabase Client]
+  D --> G[gemini-2.5-flash-image-preview API]
+  F --> H[(Supabase Database)]
+  F --> I[Supabase Storage]
 
-  subgraph "Server Application"
+  subgraph "Vercel Serverless Functions"
     B
     C
     D
-    E
     F
-    G
-    H
   end
 
   subgraph "External Services"
+    G
+    H
     I
-    J
   end
 ```
 
 ## 6. AI Image Generation Workflow
 
-### 6.1 Primary Workflow (Gemini 2.5 Flash Image)
+### 6.1 Primary Workflow (Google GenAI SDK with gemini-2.5-flash-image-preview)
 
 ```mermaid
 sequenceDiagram
     participant Client
-    participant API
-    participant Gemini as Gemini 2.5 Flash Image
+    participant Vercel as Vercel Function
+    participant GenAI as Google GenAI SDK
+    participant Gemini as gemini-2.5-flash-image-preview
     participant Storage
     
-    Client->>API: POST /api/effects/apply
-    API->>API: Load original image
-    API->>API: Create intensity-based prompt
-    API->>Gemini: Send image + generation prompt
+    Client->>Vercel: POST /api/images/apply-effect
+    Vercel->>Vercel: Initialize GoogleGenAI with API key
+    Vercel->>Vercel: Load original image from Supabase
+    Vercel->>Vercel: Create intensity-based prompt
+    Vercel->>GenAI: ai.models.generateContent()
+    GenAI->>Gemini: Send image + generation prompt
     
     alt AI Generation Success
-        Gemini->>API: Return generated image data
-        API->>API: Process & optimize generated image
-        API->>Storage: Save generated image
-        API->>Client: Return success with ai_generated method
+        Gemini->>GenAI: Return generated content
+        GenAI->>Vercel: Return response with image data
+        Vercel->>Vercel: Process & optimize generated image
+        Vercel->>Storage: Save to Supabase Storage
+        Vercel->>Client: Return jobId with ai_generated method
     else AI Generation Fails
-        API->>API: Apply Sharp fallback effects
-        API->>Storage: Save processed image
-        API->>Client: Return success with fallback_effects method
+        Vercel->>Client: Return error message
     end
 ```
 
 ### 6.2 Effect Types and Prompts
 
-| Effect Type     | AI Generation Prompt                                                                                                                                                                                       | Fallback Processing                                                                     |
-| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------- |
-| big\_head       | "Transform this image to create a comical big head effect where the person's head is dramatically enlarged while keeping facial features recognizable and maintaining a fun, cartoonish appearance"        | Enhanced resize, saturation, and sharpening                                             |
-| artistic\_style | "Transform this image to create a comical big body effect where the person's body proportions are exaggerated in a fun, cartoonish way while keeping the face normal and maintaining a playful appearance" | Advanced blur, color modulation, and gamma correction                                   |
-| aging           | "Using the provided image of this person, make this person look older with natural aging effects"                                                                                                          | Reduced brightness/saturation, increased gamma, linear adjustments for aging appearance |
+| Effect Type     | AI Generation Prompt                                                                                                                                                                                       |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| big\_head       | "Transform this image to create a comical big head effect where the person's head is dramatically enlarged while keeping facial features recognizable and maintaining a fun, cartoonish appearance"        |
+| artistic\_style | "Transform this image to create a comical big body effect where the person's body proportions are exaggerated in a fun, cartoonish way while keeping the face normal and maintaining a playful appearance" |
+| aging           | "Using the provided image of this person, make this person look older with natural aging effects"                                                                                                          |
 
 ### 6.3 Logging and Monitoring
 
@@ -245,34 +250,72 @@ The system includes comprehensive logging for:
 
 * Response analysis (image data vs text response)
 
-* Fallback mechanism triggers
+* AI generation success/failure status
 
-* Processing method used (AI-generated vs fallback)
+* Processing method: AI-generated only
 
 ### 6.4 Technical Implementation Details
 
-**Gemini 2.5 Flash Image Integration:**
+**Google GenAI SDK Integration:**
 
-* Model: `gemini-2.5-flash-image-preview`
+* SDK: `@google/genai` (official Google SDK)
 
-* Input: Base64-encoded image + text prompt
+* Model: `gemini-2.0-flash-001`
 
-* Output: Generated image data (base64) or text response
+* Input: Image file + text prompt via `generateContent()`
 
-* Fallback: Enhanced Sharp image processing when AI generation fails
+* Output: Generated content with image data or text response
 
-**Response Processing:**
+* Security: API key stored in Vercel environment variables
+
+* Error Handling: Graceful failure with user-friendly error messages
+
+**Serverless Function Implementation:**
 
 ```typescript
+import { GoogleGenAI } from '@google/genai';
+
+// Initialize with secure API key from environment
+const genAI = new GoogleGenAI({
+  apiKey: process.env.GEMINI_API_KEY
+});
+
+// Generate content with image and prompt
+const response = await genAI.models.generateContent({
+  model: 'gemini-2.0-flash-001',
+  contents: [{
+    role: 'user',
+    parts: [
+      { text: prompt },
+      { inlineData: { mimeType: 'image/jpeg', data: base64Image } }
+    ]
+  }]
+});
+
 // Check for generated image in response
-if (part.inlineData && part.inlineData.data) {
-  // Process AI-generated image
-  generatedImageBuffer = Buffer.from(part.inlineData.data, 'base64');
+if (response.candidates?.[0]?.content?.parts) {
+  for (const part of response.candidates[0].content.parts) {
+    if (part.inlineData?.data) {
+      // Process AI-generated image
+      generatedImageBuffer = Buffer.from(part.inlineData.data, 'base64');
+      break;
+    }
+  }
 } else {
-  // Apply fallback Sharp effects
-  processedBuffer = await sharp(imageBuffer).modulate({...}).toBuffer();
+  // Handle AI generation failure
+  throw new Error('AI generation failed - no image data returned');
 }
 ```
+
+**Vercel Deployment Configuration:**
+
+* Functions timeout: 60 seconds (configurable in `vercel.json`)
+
+* Runtime: Node.js 18.x
+
+* Environment variables: `GEMINI_API_KEY`, `SUPABASE_URL`, `SUPABASE_ANON_KEY`
+
+* File upload limits: 10MB (Vercel serverless function limit)
 
 **Intensity Mapping:**
 
@@ -281,6 +324,68 @@ if (part.inlineData && part.inlineData.data) {
 * 0.5-0.8: "moderate but noticeable"
 
 * 0.8-1.0: "very dramatic and exaggerated"
+
+### 6.5 Serverless Deployment Strategy
+
+**Vercel Configuration (`vercel.json`):**
+
+```json
+{
+  "functions": {
+    "api/images/apply-effect.ts": {
+      "maxDuration": 60
+    },
+    "api/images/upload.ts": {
+      "maxDuration": 30
+    }
+  },
+  "env": {
+    "GEMINI_API_KEY": "@gemini-api-key",
+    "SUPABASE_URL": "@supabase-url",
+    "SUPABASE_ANON_KEY": "@supabase-anon-key"
+  }
+}
+```
+
+**Environment Variables Setup:**
+
+1. **Development**: Create `.env.local` file:
+
+   ```
+   GEMINI_API_KEY=your_gemini_api_key_here
+   SUPABASE_URL=your_supabase_project_url
+   SUPABASE_ANON_KEY=your_supabase_anon_key
+   ```
+
+2. **Production**: Set via Vercel Dashboard or CLI:
+
+   ```bash
+   vercel env add GEMINI_API_KEY
+   vercel env add SUPABASE_URL
+   vercel env add SUPABASE_ANON_KEY
+   ```
+
+**Frontend Configuration:**
+
+* Remove Vite proxy configuration (no local server needed)
+
+* API calls directly to `/api/*` routes (handled by Vercel)
+
+* Build command: `npm run build`
+
+* Output directory: `dist`
+
+**Deployment Benefits:**
+
+* **Scalability**: Automatic scaling based on demand
+
+* **Cost-effective**: Pay-per-execution model
+
+* **Security**: API keys secured in Vercel environment
+
+* **Performance**: Edge deployment for global distribution
+
+* **Maintenance**: No server infrastructure to manage
 
 ## 7. Data Model
 

@@ -4,6 +4,7 @@ import tsconfigPaths from "vite-tsconfig-paths";
 import { traeBadgePlugin } from 'vite-plugin-trae-solo-badge';
 
 // https://vite.dev/config/
+// Force rebuild to fix deployment cache issue
 export default defineConfig({
   plugins: [
     react({

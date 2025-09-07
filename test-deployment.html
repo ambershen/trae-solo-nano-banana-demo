@@ -1,0 +1,40 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Deployment Test</title>
+</head>
+<body>
+    <h1>Testing Vercel Deployment</h1>
+    <button onclick="testGemini()">Test Gemini API</button>
+    <button onclick="testDebugEnv()">Test Debug Env</button>
+    <div id="results"></div>
+    
+    <script>
+        async function testGemini() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing Gemini API...';
+            
+            try {
+                const response = await fetch('/api/images/test-gemini');
+                const data = await response.json();
+                results.innerHTML = '<h3>Gemini API Test:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = '<h3>Gemini API Error:</h3><pre>' + error.message + '</pre>';
+            }
+        }
+        
+        async function testDebugEnv() {
+            const results = document.getElementById('results');
+            results.innerHTML = 'Testing Debug Env...';
+            
+            try {
+                const response = await fetch('/api/debug-env');
+                const data = await response.json();
+                results.innerHTML = '<h3>Debug Env Test:</h3><pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            } catch (error) {
+                results.innerHTML = '<h3>Debug Env Error:</h3><pre>' + error.message + '</pre>';
+            }
+        }
+    </script>
+</body>
+</html>

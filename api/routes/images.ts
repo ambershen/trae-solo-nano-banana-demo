@@ -18,11 +18,11 @@ let model: any = null;
 
 function getGeminiModel() {
   if (!genAI) {
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     console.log(`🔑 Environment check - VERCEL: ${!!process.env.VERCEL}, API Key exists: ${!!apiKey}`);
     
     if (!apiKey) {
-      const error = `GOOGLE_API_KEY environment variable is not set in ${process.env.VERCEL ? 'Vercel deployment' : 'local environment'}`;
+      const error = `GEMINI_API_KEY environment variable is not set in ${process.env.VERCEL ? 'Vercel deployment' : 'local environment'}`;
       console.error(`❌ ${error}`);
       throw new Error(error);
     }
@@ -78,6 +78,52 @@ interface ProcessingJob {
 }
 
 const processingJobs = new Map<string, ProcessingJob>();
+
+// Test Gemini API connection endpoint
+router.get('/test-gemini', async (req: Request, res: Response) => {
+  try {
+    console.log('\n=== GEMINI API TEST ===');
+    console.log(`Environment: ${process.env.VERCEL ? 'Vercel Serverless' : 'Local Development'}`);
+    console.log(`API Key exists: ${!!process.env.GOOGLE_API_KEY}`);
+    console.log(`Timestamp: ${new Date().toISOString()}`);
+    
+    // Test Gemini model initialization
+    const testModel = getGeminiModel();
+    console.log('✅ Gemini model initialized successfully');
+    
+    // Test a simple text generation to verify API connection
+    const result = await testModel.generateContent('Hello, this is a test. Please respond with "Gemini API is working correctly."');
+    const response = await result.response;
+    const text = response.text();
+    
+    console.log(`✅ Gemini API response: ${text}`);
+    console.log('=== END GEMINI TEST ===\n');
+    
+    res.json({
+      success: true,
+      message: 'Gemini API connection successful',
+      model: 'gemini-2.5-flash-image-preview',
+      environment: process.env.VERCEL ? 'Vercel Serverless' : 'Local Development',
+      apiResponse: text,
+      timestamp: new Date().toISOString()
+    });
+    
+  } catch (error) {
+    console.error('\n=== GEMINI API TEST ERROR ===');
+    console.error(`Error Type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+    console.error(`Error Message: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Stack Trace: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+    console.error('=== END GEMINI TEST ERROR ===\n');
+    
+    res.status(500).json({
+      success: false,
+      error: 'Gemini API connection failed',
+      details: error instanceof Error ? error.message : String(error),
+      environment: process.env.VERCEL ? 'Vercel Serverless' : 'Local Development',
+      timestamp: new Date().toISOString()
+    });
+  }
+});
 
 // Available effects for image generation
 const EFFECTS = {
@@ -191,10 +237,35 @@ router.post('/upload', upload.single('image'), async (req: Request, res: Respons
       }
     });
   } catch (error) {
-    console.error('Upload error:', error);
-    res.status(500).json({
+    console.error('\n=== IMAGE UPLOAD ERROR ===');
+    console.error(`Environment: ${process.env.VERCEL ? 'Vercel Serverless' : 'Local Development'}`);
+    console.error(`Error Type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+    console.error(`Error Message: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Stack Trace: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+    console.error(`Timestamp: ${new Date().toISOString()}`);
+    console.error('=== END UPLOAD ERROR LOG ===\n');
+    
+    let errorMessage = 'Failed to upload image';
+    let statusCode = 500;
+    
+    if (error instanceof Error) {
+      const msg = error.message.toLowerCase();
+      if (msg.includes('file type') || msg.includes('invalid')) {
+        errorMessage = 'Invalid file type. Please upload a JPEG, PNG, or WebP image.';
+        statusCode = 400;
+      } else if (msg.includes('size') || msg.includes('limit')) {
+        errorMessage = 'File too large. Please upload an image smaller than 10MB.';
+        statusCode = 400;
+      } else if (msg.includes('memory') || msg.includes('heap')) {
+        errorMessage = 'Server memory limit reached. Please try with a smaller image.';
+        statusCode = 507;
+      }
+    }
+    
+    res.status(statusCode).json({
       success: false,
-      error: 'Failed to upload image'
+      error: errorMessage,
+      details: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.message : String(error)) : undefined
     });
   }
 });
@@ -289,10 +360,22 @@ router.get('/status/:jobId', (req: Request, res: Response) => {
     });
   }
   
+  let resultUrl: string | undefined;
+  if (job.resultImagePath) {
+    if (job.resultImagePath.startsWith('cache:')) {
+      // Extract jobId from cache path and create processed image URL
+      const cachedJobId = job.resultImagePath.replace('cache:', '');
+      resultUrl = `/api/images/processed/${cachedJobId}`;
+    } else {
+      // Legacy file-based path
+      resultUrl = `/api/images/file/${path.basename(job.resultImagePath)}`;
+    }
+  }
+  
   res.json({
     status: job.status,
     progress: job.progress,
-    resultUrl: job.resultImagePath ? `/api/images/file/${path.basename(job.resultImagePath)}` : undefined,
+    resultUrl,
     error: job.error
   });
 });
@@ -371,36 +454,56 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 10;
     processingJobs.set(jobId, job);
 
-    // Find the original image - use consistent storage path
-    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
-    console.log(`📁 Looking for files in: ${uploadsDir}`);
+    // Get the original image from cache or uploads folder
+    // Since we removed the upload module, we'll use direct cache lookup (returns null to trigger fallback)
+    let cachedImage = null; // Direct fallback to uploads folder check
+    let imageBuffer: Buffer;
+    let mimeType: string;
     
-    let files: string[] = [];
-    let originalFile: string | undefined;
-    
-    try {
-      files = await fs.readdir(uploadsDir);
-      originalFile = files.find(file => file.startsWith(imageId));
-      console.log(`📁 Found ${files.length} files, looking for: ${imageId}`);
-      console.log(`📁 Available files: ${files.slice(0, 5).join(', ')}${files.length > 5 ? '...' : ''}`);
-    } catch (dirError) {
-      console.error(`❌ Failed to read directory ${uploadsDir}: ${dirError}`);
-      throw new Error(`Cannot access storage directory: ${dirError}`);
+    if (!cachedImage) {
+      console.log(`❌ Original image not found in cache for imageId: ${imageId}, checking uploads folder...`);
+      
+      // Fallback: Check uploads folder for backward compatibility
+      const fs = await import('fs');
+      const path = await import('path');
+      const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+      
+      // Try different extensions
+      const extensions = ['.jpeg', '.jpg', '.png', '.webp'];
+      let foundFile = false;
+      
+      for (const ext of extensions) {
+        const filePath = path.join(uploadsDir, `${imageId}${ext}`);
+        try {
+          if (fs.existsSync(filePath)) {
+            console.log(`✅ Found image in uploads folder: ${filePath}`);
+            imageBuffer = fs.readFileSync(filePath);
+            mimeType = ext === '.png' ? 'image/png' : ext === '.webp' ? 'image/webp' : 'image/jpeg';
+            foundFile = true;
+            job.originalImagePath = `uploads:${imageId}${ext}`;
+            break;
+          }
+        } catch (error) {
+          console.log(`Could not read ${filePath}: ${error}`);
+        }
+      }
+      
+      if (!foundFile) {
+        console.error(`❌ Original image not found in cache or uploads folder for imageId: ${imageId}`);
+        throw new Error('Original image not found');
+      }
+    } else {
+      console.log(`✅ Found cached image for ${imageId}, size: ${cachedImage.buffer.length} bytes`);
+      imageBuffer = cachedImage.buffer;
+      mimeType = 'image/jpeg';
+      job.originalImagePath = `cache:${imageId}`;
     }
     
-    if (!originalFile) {
-      throw new Error('Original image not found');
-    }
-    
-    const originalPath = path.join(uploadsDir, originalFile);
-    job.originalImagePath = originalPath;
     job.progress = 20;
     processingJobs.set(jobId, job);
     
-    // Read and prepare image for Gemini
-    const imageBuffer = await fs.readFile(originalPath);
+    // Prepare image for Gemini
     const base64Image = imageBuffer.toString('base64');
-    const mimeType = originalFile.toLowerCase().endsWith('.png') ? 'image/png' : 'image/jpeg';
     
     job.progress = 30;
     processingJobs.set(jobId, job);
@@ -555,26 +658,175 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 90;
     processingJobs.set(jobId, job);
     
-    // Save processed image
-    const resultFilename = `generated_${jobId}.jpg`;
-    const resultPath = path.join(uploadsDir, resultFilename);
-    await fs.writeFile(resultPath, processedBuffer);
+    // Store processed image to filesystem with processed_ prefix
+    const fs = await import('fs/promises');
+    const path = await import('path');
+    const processedFilename = `processed_${jobId}.jpg`;
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+    const processedFilePath = path.join(uploadsDir, processedFilename);
+    
+    console.log(`💾 Storing processed image to file: "${processedFilePath}"`);
+    
+    try {
+      // Ensure uploads directory exists
+      await fs.mkdir(uploadsDir, { recursive: true });
+      
+      // Clean up old files in /tmp to prevent storage issues (Vercel only)
+      if (process.env.VERCEL) {
+        try {
+          const files = await fs.readdir(uploadsDir);
+          const now = Date.now();
+          const maxAge = 30 * 60 * 1000; // 30 minutes
+          
+          for (const file of files) {
+            const filePath = path.join(uploadsDir, file);
+            try {
+              const stats = await fs.stat(filePath);
+              if (now - stats.mtime.getTime() > maxAge) {
+                await fs.unlink(filePath);
+                console.log(`🗑️ Cleaned up old file: ${file}`);
+              }
+            } catch (cleanupError) {
+              // Ignore cleanup errors
+            }
+          }
+        } catch (cleanupError) {
+          console.log(`⚠️ File cleanup warning: ${cleanupError}`);
+        }
+      }
+      
+      // Write processed image to file
+      await fs.writeFile(processedFilePath, processedBuffer);
+      
+      console.log(`💾 Processed image saved successfully: ${processedFilename} (${processedBuffer.length} bytes)`);
+    } catch (writeError) {
+      console.error(`❌ Failed to save processed image:`, writeError);
+      throw new Error(`Failed to save processed image: ${writeError}`);
+    }
     
     // Complete the job
     job.status = 'completed';
     job.progress = 100;
-    job.resultImagePath = resultPath;
+    job.resultImagePath = `cache:${jobId}`;
     job.completedAt = new Date();
     job.aiResponse = generatedImageBuffer ? 'Image generated successfully' : (hasTextResponse ? 'Text response received, applied fallback effects' : 'No response, applied fallback effects');
     processingJobs.set(jobId, job);
     
+    console.log(`✅ Processed image cached for job ${jobId}`);
+    
     console.log(`Image processing completed for job ${jobId} using ${generatedImageBuffer ? 'AI-generated' : 'fallback'} method`);
   } catch (error) {
-    console.error('AI image generation error:', error);
+    console.error('\n=== AI IMAGE GENERATION ERROR ===');
+    console.error(`Job ID: ${jobId}`);
+    console.error(`Effect Type: ${effectType}`);
+    console.error(`Intensity: ${intensity}`);
+    console.error(`Environment: ${process.env.VERCEL ? 'Vercel Serverless' : 'Local Development'}`);
+    console.error(`Error Type: ${error instanceof Error ? error.constructor.name : typeof error}`);
+    console.error(`Error Message: ${error instanceof Error ? error.message : String(error)}`);
+    console.error(`Stack Trace: ${error instanceof Error ? error.stack : 'No stack trace'}`);
+    console.error(`Timestamp: ${new Date().toISOString()}`);
+    console.error('=== END ERROR LOG ===\n');
+    
+    // Detailed error categorization for better debugging
+    let errorCategory = 'unknown';
+    let userFriendlyMessage = 'An unexpected error occurred during image processing';
+    
+    if (error instanceof Error) {
+      const errorMessage = error.message.toLowerCase();
+      
+      if (errorMessage.includes('api key') || errorMessage.includes('authentication')) {
+        errorCategory = 'authentication';
+        userFriendlyMessage = 'API authentication failed. Please check environment variables.';
+      } else if (errorMessage.includes('timeout')) {
+        errorCategory = 'timeout';
+        userFriendlyMessage = 'Request timed out. Please try again.';
+      } else if (errorMessage.includes('network') || errorMessage.includes('fetch')) {
+        errorCategory = 'network';
+        userFriendlyMessage = 'Network error occurred. Please check your connection.';
+      } else if (errorMessage.includes('file') || errorMessage.includes('storage')) {
+        errorCategory = 'storage';
+        userFriendlyMessage = 'File storage error. Please try uploading again.';
+      } else if (errorMessage.includes('memory') || errorMessage.includes('heap')) {
+        errorCategory = 'memory';
+        userFriendlyMessage = 'Memory limit exceeded. Please try with a smaller image.';
+      } else if (errorMessage.includes('gemini') || errorMessage.includes('ai')) {
+        errorCategory = 'ai_service';
+        userFriendlyMessage = 'AI service error. Please try again later.';
+      }
+    }
+    
     job.status = 'failed';
-    job.error = error instanceof Error ? error.message : 'Unknown error';
+    job.error = `[${errorCategory.toUpperCase()}] ${userFriendlyMessage}`;
+    job.completedAt = new Date();
     processingJobs.set(jobId, job);
+    
+    // Log additional system information for debugging
+    console.error('\n=== SYSTEM DEBUG INFO ===');
+    console.error(`Memory Usage: ${JSON.stringify(process.memoryUsage(), null, 2)}`);
+    console.error(`Platform: ${process.platform}`);
+    console.error(`Node Version: ${process.version}`);
+    console.error(`Environment Variables: VERCEL=${!!process.env.VERCEL}, NODE_ENV=${process.env.NODE_ENV}`);
+    console.error('=== END SYSTEM INFO ===\n');
   }
 }
+
+// Get processed image endpoint
+router.get('/processed/:jobId', async (req: Request, res: Response) => {
+  const { jobId } = req.params;
+
+  if (!jobId) {
+    return res.status(400).json({ success: false, error: 'Job ID is required' });
+  }
+
+  try {
+    const processedFilename = `processed_${jobId}.jpg`;
+    const uploadsDir = process.env.VERCEL ? '/tmp' : path.join(process.cwd(), 'uploads');
+    const processedFilePath = path.join(uploadsDir, processedFilename);
+    
+    console.log(`🔍 Looking for processed image file: "${processedFilePath}"`);
+    
+    // Check if file exists
+    try {
+      await fs.access(processedFilePath);
+    } catch (accessError) {
+      console.log(`❌ Processed image file not found: ${processedFilename}`);
+      
+      // List available processed files for debugging
+      try {
+        const files = await fs.readdir(uploadsDir);
+        const processedFiles = files.filter(file => file.startsWith('processed_'));
+        console.log(`🔍 Available processed files:`, processedFiles);
+      } catch (listError) {
+        console.log(`❌ Could not list uploads directory:`, listError);
+      }
+      
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Processed image not found',
+        jobId,
+        filename: processedFilename
+      });
+    }
+    
+    // Read the processed image file
+    const imageBuffer = await fs.readFile(processedFilePath);
+    console.log(`✅ Found processed image file: ${processedFilename} (${imageBuffer.length} bytes)`);
+
+    // Set appropriate headers
+    res.setHeader('Content-Type', 'image/jpeg');
+    res.setHeader('Content-Length', imageBuffer.length);
+    res.setHeader('Cache-Control', 'public, max-age=3600'); // Cache for 1 hour
+
+    // Send the image buffer
+    res.status(200).send(imageBuffer);
+  } catch (error) {
+    console.error('Error retrieving processed image:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to retrieve processed image',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
 
 export default router;

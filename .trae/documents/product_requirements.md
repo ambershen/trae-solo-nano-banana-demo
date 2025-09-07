@@ -1,7 +1,7 @@
 # AI Photo Effects Studio - Product Requirements Document
 
 ## 1. Product Overview
-AI Photo Effects Studio is a web-based photo editing platform that allows users to upload images and apply AI-powered preset effects using Google's Gemini 2.5 Flash model. The platform focuses on fun, creative transformations like the "big head effect" and other artistic filters that leverage advanced AI image generation capabilities.
+AI Photo Effects Studio is a serverless web-based photo editing platform that allows users to upload images and apply AI-powered preset effects using Google's Gemini 2.0 Flash model via the official GenAI SDK. The platform focuses on fun, creative transformations like the "big head effect" and other artistic filters that leverage advanced AI image generation capabilities with secure API key handling.
 
 The product targets casual users, social media enthusiasts, and content creators who want to quickly apply unique AI-generated effects to their photos without requiring technical expertise in photo editing.
 
@@ -44,7 +44,7 @@ Our AI Photo Effects Studio consists of the following main pages:
 2. User uploads an image via drag-and-drop or file browser
 3. System validates image format and size, redirects to editor
 4. User selects desired AI effect from categorized panel
-5. System sends image and effect parameters to Gemini 2.5 Flash API
+5. System sends image and effect parameters to Gemini 2.0 Flash API via secure Vercel serverless functions
 6. User sees real-time processing status and preview updates
 7. Once processing completes, user can download or save to gallery
 8. Registered users can access their gallery to view/share previous edits

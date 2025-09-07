@@ -15,15 +15,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   }
 
   try {
-    const apiKey = process.env.GOOGLE_API_KEY;
+    const apiKey = process.env.GEMINI_API_KEY;
     const isVercel = !!process.env.VERCEL;
-    const googleEnvVars = Object.keys(process.env).filter(k => k.includes('GOOGLE'));
+    const geminiEnvVars = Object.keys(process.env).filter(k => k.includes('GEMINI'));
     
     console.log('🔍 Environment Debug:', {
       isVercel,
       hasApiKey: !!apiKey,
       apiKeyLength: apiKey?.length || 0,
-      googleEnvVars,
+      geminiEnvVars,
       nodeEnv: process.env.NODE_ENV
     });
 
@@ -34,7 +34,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         hasApiKey: !!apiKey,
         apiKeyLength: apiKey?.length || 0,
         apiKeyPreview: apiKey ? `${apiKey.substring(0, 10)}...${apiKey.substring(apiKey.length - 4)}` : 'Not set',
-        googleEnvVars,
+        geminiEnvVars,
         nodeEnv: process.env.NODE_ENV
       }
     });

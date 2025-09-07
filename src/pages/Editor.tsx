@@ -1,5 +1,4 @@
 import { useState, useRef, useEffect } from 'react';
-import { useLocation, useNavigate } from 'react-router-dom';
 import { 
   Upload, 
   Download, 
@@ -32,12 +31,10 @@ interface Effect {
 }
 
 export default function Editor() {
-  const location = useLocation();
-  const navigate = useNavigate();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   
-  const [selectedFile, setSelectedFile] = useState<File | null>(location.state?.file || null);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string>('');
   const [selectedEffect, setSelectedEffect] = useState<string>('');
   const [isProcessing, setIsProcessing] = useState(false);
@@ -92,50 +89,7 @@ export default function Editor() {
     }
   }, [selectedFile]);
 
-  // Poll for processing status
-  useEffect(() => {
-    let interval: NodeJS.Timeout;
-    
-    if (processingJob && processingJob.status === 'processing') {
-      interval = setInterval(async () => {
-        try {
-          const response = await fetch(`/api/images/status/${processingJob.id}`);
-          
-          // Check if response is JSON before parsing
-          const contentType = response.headers.get('content-type');
-          if (!contentType || !contentType.includes('application/json')) {
-            console.error('API returned non-JSON response:', await response.text());
-            setProcessingJob(prev => ({ ...prev, status: 'failed', error: 'Server timeout or error' }));
-            setIsProcessing(false);
-            return;
-          }
-          
-          if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-          }
-          
-          const data = await response.json();
-          
-          setProcessingJob(prev => ({ ...prev, ...data }));
-          
-          if (data.status === 'completed') {
-            setProcessedImageUrl(data.resultUrl);
-            setIsProcessing(false);
-          } else if (data.status === 'failed') {
-            setIsProcessing(false);
-          }
-        } catch (error) {
-          console.error('Error checking status:', error);
-          setProcessingJob(prev => ({ ...prev, status: 'failed', error: error.message }));
-          setIsProcessing(false);
-        }
-      }, 2000);
-    }
-    
-    return () => {
-      if (interval) clearInterval(interval);
-    };
-  }, [processingJob]);
+  // No longer need polling since AI generation is immediate
 
   const handleDrag = (e: React.DragEvent) => {
     e.preventDefault();
@@ -182,13 +136,73 @@ export default function Editor() {
     setProcessingJob(null);
   };
 
+  // Poll for processing status
+  const pollProcessingStatus = async (jobId: string) => {
+    const maxAttempts = 60; // 2 minutes max
+    let attempts = 0;
+    
+    const poll = async (): Promise<void> => {
+      try {
+        const response = await fetch(`/api/images/status/${jobId}`);
+        const data = await response.json();
+        
+        if (data.status === 'completed') {
+          setProcessedImageUrl(data.resultUrl);
+          setProcessingJob({
+            id: jobId,
+            status: 'completed',
+            result_url: data.resultUrl
+          });
+          setIsProcessing(false);
+          return;
+        } else if (data.status === 'failed') {
+          setProcessingJob({
+            id: jobId,
+            status: 'failed',
+            error: data.error || 'Processing failed'
+          });
+          setIsProcessing(false);
+          return;
+        } else if (data.status === 'processing') {
+          setProcessingJob({
+            id: jobId,
+            status: 'processing',
+            progress: data.progress
+          });
+        }
+        
+        attempts++;
+        if (attempts < maxAttempts) {
+          setTimeout(poll, 2000); // Poll every 2 seconds
+        } else {
+          setProcessingJob({
+            id: jobId,
+            status: 'failed',
+            error: 'Processing timeout'
+          });
+          setIsProcessing(false);
+        }
+      } catch (error) {
+        console.error('Error polling status:', error);
+        setProcessingJob({
+          id: jobId,
+          status: 'failed',
+          error: 'Failed to check processing status'
+        });
+        setIsProcessing(false);
+      }
+    };
+    
+    poll();
+  };
+
   const handleApplyEffect = async () => {
     console.log('handleApplyEffect called');
     console.log('selectedFile:', selectedFile);
     console.log('selectedEffect:', selectedEffect);
     
     if (!selectedFile || !selectedEffect) {
-      alert('Please select an image and an effect');
+      alert('Please upload an image and select an effect');
       return;
     }
 
@@ -197,57 +211,37 @@ export default function Editor() {
     setProcessingJob(null);
 
     try {
-      // Step 1: Upload the image first
-      console.log('Starting image upload...');
-      const uploadFormData = new FormData();
-      uploadFormData.append('image', selectedFile);
-
+      // First, upload the image
+      const formData = new FormData();
+      formData.append('image', selectedFile);
+      
+      console.log('Uploading image...');
       const uploadResponse = await fetch('/api/images/upload', {
         method: 'POST',
-        body: uploadFormData,
+        body: formData,
       });
 
-      console.log('Upload response status:', uploadResponse.status);
-      
-      // Check if response is JSON before parsing
-      const uploadContentType = uploadResponse.headers.get('content-type');
-      if (!uploadContentType || !uploadContentType.includes('application/json')) {
-        const errorText = await uploadResponse.text();
-        console.error('Upload API returned non-JSON response:', errorText);
-        throw new Error('Server timeout or error during upload');
-      }
-      
       if (!uploadResponse.ok) {
         const errorData = await uploadResponse.json();
-        console.error('Upload failed:', errorData);
         throw new Error(errorData.error || 'Failed to upload image');
       }
 
       const uploadData = await uploadResponse.json();
-      console.log('Upload successful:', uploadData);
-      const imageId = uploadData.imageId;
-
-      // Step 2: Apply the effect using the imageId
-      console.log('Starting effect application with imageId:', imageId);
+      console.log('Image upload successful:', uploadData);
+      
+      // Then, apply the effect
+      console.log('Applying effect:', selectedEffect);
       const effectResponse = await fetch('/api/images/apply-effect', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          imageId: imageId,
+          imageId: uploadData.imageId,
           effectType: selectedEffect,
           intensity: 0.8
         }),
       });
-
-      // Check if response is JSON before parsing
-      const effectContentType = effectResponse.headers.get('content-type');
-      if (!effectContentType || !effectContentType.includes('application/json')) {
-        const errorText = await effectResponse.text();
-        console.error('Effect API returned non-JSON response:', errorText);
-        throw new Error('Server timeout or error during effect processing');
-      }
 
       if (!effectResponse.ok) {
         const errorData = await effectResponse.json();
@@ -255,14 +249,26 @@ export default function Editor() {
       }
 
       const effectData = await effectResponse.json();
+      console.log('Effect application started:', effectData);
+      
+      // Start polling for processing status
       setProcessingJob({
         id: effectData.jobId,
-        status: 'processing'
+        status: 'processing',
+        progress: 0
       });
+      
+      pollProcessingStatus(effectData.jobId);
+      
     } catch (error) {
-      console.error('Error applying effect:', error);
-      alert('Failed to apply effect. Please try again.');
+      console.error('Error processing image:', error);
+      alert(`Failed to process image: ${error.message}`);
       setIsProcessing(false);
+      setProcessingJob({
+        id: 'error',
+        status: 'failed',
+        error: error.message
+      });
     }
   };
 
@@ -359,7 +365,7 @@ export default function Editor() {
             {selectedFile && (
               <div className="bg-white rounded-2xl shadow-lg p-6">
                 <div className="flex justify-between items-center mb-6">
-                  <h2 className="text-2xl font-bold text-gray-900">Preview</h2>
+                  <h2 className="text-2xl font-bold text-gray-900">Image Preview</h2>
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     className="text-black hover:text-gray-700 font-medium flex items-center space-x-2"
@@ -417,7 +423,7 @@ export default function Editor() {
                       ) : (
                         <div className="text-center text-gray-400">
                           <ImageIcon className="w-12 h-12 mx-auto mb-2" />
-                          <p>Select an effect to preview</p>
+                          <p>Apply an effect to see result</p>
                         </div>
                       )}
                     </div>

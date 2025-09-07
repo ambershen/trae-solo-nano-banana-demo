@@ -2,17 +2,29 @@
   "name": "nano-banana-effect",
   "functions": {
     "api/**/*.ts": {
-      "maxDuration": 60
+      "maxDuration": 60,
+      "memory": 1024
     }
   },
   "rewrites": [
     {
-      "source": "/api/(.*)",
-      "destination": "/api/$1"
+      "source": "/api/generate-image",
+      "destination": "/api/generate-image"
     },
     {
-      "source": "/(.*)",
+      "source": "/api/debug-env",
+      "destination": "/api/debug-env"
+    },
+    {
+      "source": "/api/(.*)",
+      "destination": "/api/index"
+    },
+    {
+      "source": "/((?!api|assets).*)",
       "destination": "/index.html"
     }
-  ]
+  ],
+  "env": {
+    "NODE_ENV": "production"
+  }
 }
