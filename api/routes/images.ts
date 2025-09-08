@@ -323,7 +323,7 @@ router.post('/apply-effect', async (req: Request, res: Response) => {
     console.log(`📝 Created job ${jobId} for image ${imageId} with effect ${effectType}`);
     
     // Start processing asynchronously
-    processImageWithAI(jobId, imageId, effectType, intensity).catch(error => {
+    processImageWithAI(jobId, imageId, effectType).catch(error => {
       console.error(`❌ Error processing image job ${jobId}:`, error);
       const job = processingJobs.get(jobId);
       if (job) {
@@ -429,7 +429,7 @@ router.get('/effects', (req: Request, res: Response) => {
 });
 
 // AI image generation function using Gemini 2.5 Flash Image
-async function processImageWithAI(jobId: string, imageId: string, effectType: string, intensity: number) {
+async function processImageWithAI(jobId: string, imageId: string, effectType: string) {
   const job = processingJobs.get(jobId);
   if (!job) return;
 
@@ -508,16 +508,13 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 30;
     processingJobs.set(jobId, job);
     
-    // Get effect configuration and create intensity-adjusted prompt
+    // Get effect configuration and create fixed prompt
     const effect = EFFECTS[effectType as keyof typeof EFFECTS];
-    const intensityDescription = intensity > 0.8 ? 'very dramatic and exaggerated' : 
-                                intensity > 0.5 ? 'moderate but noticeable' : 'subtle but visible';
-    const prompt = `${effect.prompt} Apply this transformation with ${intensityDescription} intensity (${Math.round(intensity * 100)}%). The result should be a ${intensityDescription} transformation that maintains image quality and realism while achieving the desired effect.`;
+    const prompt = effect.prompt;
     
     console.log(`\n=== GEMINI IMAGE GENERATION START ===`);
     console.log(`Job ID: ${jobId}`);
     console.log(`Effect Type: ${effectType}`);
-    console.log(`Intensity: ${intensity} (${intensityDescription})`);
     console.log(`Image Size: ${imageBuffer.length} bytes`);
     console.log(`MIME Type: ${mimeType}`);
     console.log(`Prompt: ${prompt}`);
@@ -530,10 +527,10 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     console.log(`Calling Gemini 2.5 Flash Image API for image generation...`);
     const apiCallStart = Date.now();
     
-    // Add timeout to prevent hanging
-    const GEMINI_TIMEOUT = 45000; // 45 seconds
+    // Add timeout to prevent hanging - reduced for better reliability
+    const GEMINI_TIMEOUT = 20000; // 20 seconds
     const timeoutPromise = new Promise((_, reject) => {
-      setTimeout(() => reject(new Error('Gemini API timeout after 45 seconds')), GEMINI_TIMEOUT);
+      setTimeout(() => reject(new Error('Gemini API timeout after 20 seconds')), GEMINI_TIMEOUT);
     });
     
     const geminiPromise = geminiModel.generateContent([
@@ -546,6 +543,10 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
       prompt
     ]);
     
+    // Monitor memory usage
+    const memUsage = process.memoryUsage();
+    console.log(`Memory before Gemini call: ${Math.round(memUsage.heapUsed / 1024 / 1024)}MB`);
+    
     const result = await Promise.race([geminiPromise, timeoutPromise]) as any;
     
     const apiCallDuration = Date.now() - apiCallStart;
@@ -556,12 +557,16 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     
     const response = await result.response;
     
+    // Check if response is valid
+    if (!response || !response.candidates || response.candidates.length === 0) {
+      throw new Error('Gemini returned empty response - no image generated');
+    }
+    
     console.log(`\n=== GEMINI API RESPONSE ===`);
     console.log(`Response candidates: ${response.candidates?.length || 0}`);
     
     // Process the response to extract generated image
     let generatedImageBuffer: Buffer | null = null;
-    let hasTextResponse = false;
     
     if (response.candidates && response.candidates.length > 0) {
       const candidate = response.candidates[0];
@@ -575,13 +580,13 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
             console.log(`Decoded image buffer size: ${generatedImageBuffer.length} bytes`);
             break;
           }
-          // Check for text response (fallback)
-          else if (part.text) {
-            console.log(`Found text response: ${part.text.substring(0, 200)}...`);
-            hasTextResponse = true;
-          }
         }
       }
+    }
+    
+    // If no image was generated, throw error
+    if (!generatedImageBuffer || generatedImageBuffer.length === 0) {
+      throw new Error('No image data in Gemini response - AI generation failed');
     }
     
     console.log(`=== GEMINI IMAGE GENERATION END ===\n`);
@@ -589,71 +594,24 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 80;
     processingJobs.set(jobId, job);
     
-    let processedBuffer: Buffer;
+    // Use the AI-generated image
+    console.log(`Using AI-generated image (${generatedImageBuffer.length} bytes)`);
+    let processedBuffer = generatedImageBuffer;
     
-    if (generatedImageBuffer && generatedImageBuffer.length > 0) {
-      // Use the AI-generated image
-      console.log(`Using AI-generated image (${generatedImageBuffer.length} bytes)`);
+    // Optimize the generated image
+    try {
+      processedBuffer = await sharp(generatedImageBuffer)
+        .jpeg({ quality: 90 })
+        .toBuffer();
+      console.log(`Optimized generated image to ${processedBuffer.length} bytes`);
+    } catch (optimizeError) {
+      console.log(`Could not optimize generated image, using original: ${optimizeError}`);
       processedBuffer = generatedImageBuffer;
-      
-      // Optimize the generated image
-      try {
-        processedBuffer = await sharp(generatedImageBuffer)
-          .jpeg({ quality: 90 })
-          .toBuffer();
-        console.log(`Optimized generated image to ${processedBuffer.length} bytes`);
-      } catch (optimizeError) {
-        console.log(`Could not optimize generated image, using original: ${optimizeError}`);
-        processedBuffer = generatedImageBuffer;
-      }
-    } else {
-      // Fallback: Apply enhanced effects using Sharp if no image was generated
-      console.log(`No image generated by AI, applying fallback effects with Sharp`);
-      
-      switch (effectType) {
-        case 'big_head':
-          processedBuffer = await sharp(imageBuffer)
-            .resize({ width: Math.round(1024 * (1 + intensity * 0.5)), height: Math.round(1024 * (1 + intensity * 0.5)), fit: 'inside' })
-            .modulate({ 
-              brightness: 1.1 + (intensity * 0.3), 
-              saturation: 1.2 + (intensity * 0.4),
-              hue: Math.round(intensity * 15)
-            })
-            .sharpen(1 + intensity * 2)
-            .gamma(1.1 + (intensity * 0.3))
-            .toBuffer();
-          break;
-        case 'artistic_style':
-          processedBuffer = await sharp(imageBuffer)
-            .modulate({ 
-              brightness: 1.05 + (intensity * 0.2), 
-              saturation: 1.4 + (intensity * 0.5), 
-              hue: Math.round(intensity * 20) 
-            })
-            .blur(0.3 + (intensity * 1.2))
-            .sharpen(0.8 + intensity * 1.5)
-            .gamma(1.2 + (intensity * 0.4))
-            .linear(1.2 + (intensity * 0.3), -(128 * (1.2 + intensity * 0.3)) + 128)
-            .toBuffer();
-          break;
-        case 'aging':
-          processedBuffer = await sharp(imageBuffer)
-            .modulate({ 
-              brightness: 0.9 - (intensity * 0.1), 
-              saturation: 0.8 - (intensity * 0.2)
-            })
-            .gamma(1.3 + (intensity * 0.3))
-            .linear(0.9 - (intensity * 0.1), 10 + (intensity * 20))
-            .sharpen(0.5 + intensity * 0.5)
-            .toBuffer();
-          break;
-        default:
-          processedBuffer = await sharp(imageBuffer)
-            .modulate({ brightness: 1.1, saturation: 1.2 })
-            .sharpen()
-            .toBuffer();
-      }
     }
+    
+    // Monitor memory usage after processing
+    const memUsageAfter = process.memoryUsage();
+    console.log(`Memory after processing: ${Math.round(memUsageAfter.heapUsed / 1024 / 1024)}MB`);
     
     job.progress = 90;
     processingJobs.set(jobId, job);
@@ -709,17 +667,16 @@ async function processImageWithAI(jobId: string, imageId: string, effectType: st
     job.progress = 100;
     job.resultImagePath = `cache:${jobId}`;
     job.completedAt = new Date();
-    job.aiResponse = generatedImageBuffer ? 'Image generated successfully' : (hasTextResponse ? 'Text response received, applied fallback effects' : 'No response, applied fallback effects');
+    job.aiResponse = 'Image generated successfully using AI';
     processingJobs.set(jobId, job);
     
     console.log(`✅ Processed image cached for job ${jobId}`);
     
-    console.log(`Image processing completed for job ${jobId} using ${generatedImageBuffer ? 'AI-generated' : 'fallback'} method`);
+    console.log(`Image processing completed for job ${jobId} using AI generation`);
   } catch (error) {
     console.error('\n=== AI IMAGE GENERATION ERROR ===');
     console.error(`Job ID: ${jobId}`);
     console.error(`Effect Type: ${effectType}`);
-    console.error(`Intensity: ${intensity}`);
     console.error(`Environment: ${process.env.VERCEL ? 'Vercel Serverless' : 'Local Development'}`);
     console.error(`Error Type: ${error instanceof Error ? error.constructor.name : typeof error}`);
     console.error(`Error Message: ${error instanceof Error ? error.message : String(error)}`);
